@@ -1,0 +1,2152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Career OS — Onboarding</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400&family=DM+Mono:wght@300;400;500&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<style>
+:root {
+  --bg:#08090f; --surface:#0f1018; --surface2:#141622;
+  --border:#1a1e30; --border2:#232840;
+  --text:#d0daf0; --text2:#6b7fa3; --text3:#2e3d5a;
+  --accent:#e8a640; --accent-dim:rgba(232,166,64,0.12);
+  --green:#10b981; --blue:#3b82f6; --purple:#8b5cf6;
+  --gap:#f472b6;
+  --node-role:#3b82f6; --node-skill:#10b981;
+  --node-project:#8b5cf6; --node-outcome:#f59e0b; --node-decision:#ef4444;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+html,body{height:100%;overflow:hidden;}
+body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);display:flex;flex-direction:column;}
+
+/* grid bg */
+body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
+  background-image:linear-gradient(rgba(26,30,48,0.6) 1px,transparent 1px),linear-gradient(90deg,rgba(26,30,48,0.6) 1px,transparent 1px);
+  background-size:52px 52px;}
+
+/* ── HEADER ── */
+.hdr{position:relative;z-index:20;display:flex;align-items:center;justify-content:space-between;
+  padding:12px 28px;border-bottom:1px solid var(--border);
+  background:rgba(8,9,15,0.97);flex-shrink:0;}
+.brand{display:flex;align-items:center;gap:10px;}
+.brand-mark{width:26px;height:26px;border:1.5px solid var(--accent);border-radius:5px;
+  display:flex;align-items:center;justify-content:center;position:relative;}
+.brand-mark::before{content:'';width:7px;height:7px;background:var(--accent);border-radius:50%;}
+.brand-mark::after{content:'';position:absolute;width:1.5px;height:12px;background:var(--accent);
+  top:50%;left:50%;transform:translate(-50%,-50%) rotate(45deg);opacity:0.4;}
+.brand-name{font-family:'Cormorant Garamond',serif;font-size:17px;font-weight:400;letter-spacing:0.01em;}
+.brand-tag{font-family:'DM Mono',monospace;font-size:8px;color:var(--text2);letter-spacing:0.14em;text-transform:uppercase;}
+.hdr-right{display:flex;align-items:center;gap:10px;}
+.hdr-right label{font-family:'DM Mono',monospace;font-size:9px;color:var(--text2);letter-spacing:0.08em;text-transform:uppercase;}
+.api-inp{background:var(--surface);border:1px solid var(--border2);color:var(--text);
+  font-family:'DM Mono',monospace;font-size:11px;padding:5px 10px;border-radius:4px;
+  width:220px;outline:none;transition:border-color 0.2s;}
+.api-inp:focus{border-color:var(--accent);}
+.api-inp::placeholder{color:var(--text3);}
+
+/* ── MAIN SPLIT ── */
+.main{position:relative;z-index:5;display:grid;grid-template-columns:1fr 420px;flex:1;overflow:hidden;}
+
+/* ── LEFT: GRAPH PANEL ── */
+.graph-panel{display:flex;flex-direction:column;border-right:1px solid var(--border);overflow:hidden;position:relative;}
+.graph-panel-hdr{padding:12px 18px;border-bottom:1px solid var(--border);
+  display:flex;align-items:center;justify-content:space-between;flex-shrink:0;}
+.panel-label{font-family:'DM Mono',monospace;font-size:9px;letter-spacing:0.14em;text-transform:uppercase;color:var(--text2);}
+.graph-stage-pills{display:flex;gap:6px;}
+.stage-pill{font-family:'DM Mono',monospace;font-size:8px;letter-spacing:0.08em;text-transform:uppercase;
+  padding:3px 8px;border-radius:20px;border:1px solid var(--border2);color:var(--text3);transition:all 0.3s;}
+.stage-pill.active{border-color:var(--accent);color:var(--accent);background:var(--accent-dim);}
+.stage-pill.done{border-color:var(--green);color:var(--green);background:rgba(16,185,129,0.08);}
+
+.graph-area{flex:1;position:relative;overflow:hidden;}
+#graphSvgWrap{width:100%;height:100%;position:relative;}
+
+/* ── OUTCOME CARD STACK ── */
+.outcome-stack{
+  position:absolute;bottom:0;left:0;right:0;
+  display:flex;flex-direction:column;
+  z-index:15;pointer-events:none;
+}
+.outcome-card{
+  pointer-events:all;
+  background:rgba(9,10,16,0.92);
+  backdrop-filter:blur(16px);
+  border-top:1px solid var(--card-color,var(--border2));
+  transform:translateY(100%);
+  transition:transform 0.5s cubic-bezier(0.16,1,0.3,1);
+  overflow:hidden;
+  max-height:280px;
+}
+.outcome-card.visible{transform:translateY(0);}
+.outcome-card.collapsed .oc-body{display:none;}
+.outcome-card.collapsed .oc-tab-chevron{transform:rotate(180deg);}
+
+/* Tab row */
+.oc-tab{
+  display:flex;align-items:center;gap:8px;
+  padding:8px 18px;cursor:pointer;
+  border-bottom:1px solid rgba(255,255,255,0.04);
+  transition:background 0.15s;
+  user-select:none;
+}
+.oc-tab:hover{background:rgba(255,255,255,0.03);}
+.oc-tab-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;}
+.oc-tab-label{
+  font-family:'DM Mono',monospace;font-size:9px;letter-spacing:0.12em;
+  text-transform:uppercase;color:var(--text2);flex:1;
+}
+.oc-tab-chevron{
+  font-size:11px;color:var(--text3);
+  transition:transform 0.3s;
+  font-family:'DM Mono',monospace;
+}
+
+/* Body */
+.oc-body{
+  padding:16px 20px 18px;
+  overflow-y:auto;
+  max-height:220px;
+}
+.oc-body::-webkit-scrollbar{width:3px;}
+.oc-body::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px;}
+
+/* Strength card content */
+.oc-text{
+  font-family:'Cormorant Garamond',serif;
+  font-size:18px;font-weight:300;font-style:italic;
+  line-height:1.55;color:var(--text);
+}
+.oc-text strong{font-style:normal;font-weight:600;color:var(--accent);}
+.insight-cursor{display:inline-block;width:2px;height:16px;background:var(--accent);
+  vertical-align:middle;animation:blink 0.9s infinite;margin-left:2px;}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:0}}
+
+/* Direction mini-cards inside body */
+.dir-card{
+  padding:10px 14px;border-radius:6px;margin-bottom:8px;
+  border:1px solid var(--border2);background:var(--surface2);
+  cursor:pointer;transition:border-color 0.2s;
+}
+.dir-card:hover{border-color:#3b82f6;}
+.dir-card.selected{border-color:#3b82f6;background:rgba(59,130,246,0.08);}
+.dir-card:last-child{margin-bottom:0;}
+.dir-card-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;}
+.dir-card-num{font-family:'DM Mono',monospace;font-size:8px;color:var(--text3);letter-spacing:0.1em;}
+.dir-card-timeline{font-family:'DM Mono',monospace;font-size:8px;color:var(--green);
+  letter-spacing:0.06em;padding:1px 6px;border:1px solid rgba(16,185,129,0.3);border-radius:3px;}
+.dir-card-title{font-family:'Cormorant Garamond',serif;font-size:15px;font-weight:400;
+  color:#3b82f6;margin-bottom:4px;}
+.dir-card-why{font-size:11px;color:var(--text2);line-height:1.6;}
+.dir-card-miss{font-size:10px;color:var(--text3);margin-top:6px;font-style:italic;}
+
+/* Portrait card content */
+.portrait-identity{
+  font-family:'DM Mono',monospace;font-size:9px;color:var(--green);
+  letter-spacing:0.14em;text-transform:uppercase;margin-bottom:8px;
+  display:flex;align-items:center;gap:6px;
+}
+.portrait-identity::before{content:'◈';color:var(--green);}
+.portrait-celebration{
+  font-family:'Cormorant Garamond',serif;font-size:16px;font-weight:300;
+  font-style:italic;line-height:1.5;color:var(--text);margin-bottom:12px;
+}
+.portrait-celebration strong{font-style:normal;font-weight:600;color:var(--accent);}
+.portrait-row{margin-bottom:10px;}
+.portrait-row-label{
+  font-family:'DM Mono',monospace;font-size:8px;letter-spacing:0.1em;
+  text-transform:uppercase;margin-bottom:4px;
+}
+.portrait-row-val{font-size:11px;color:var(--text2);line-height:1.6;}
+
+/* graph legend */
+.graph-legend{position:absolute;top:10px;right:10px;display:flex;flex-direction:column;gap:4px;z-index:5;}
+.leg-item{display:flex;align-items:center;gap:5px;font-family:'DM Mono',monospace;
+  font-size:8px;color:var(--text2);letter-spacing:0.05em;text-transform:uppercase;opacity:0;transition:opacity 0.4s;}
+.leg-item.show{opacity:1;}
+.leg-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0;}
+
+/* node tooltip */
+.ntip{position:absolute;background:var(--surface2);border:1px solid var(--border2);
+  border-radius:6px;padding:8px 12px;font-family:'DM Mono',monospace;font-size:10px;
+  color:var(--text);max-width:200px;pointer-events:none;z-index:100;
+  box-shadow:0 8px 24px rgba(0,0,0,0.5);display:none;}
+.ntip-type{font-size:8px;color:var(--text2);letter-spacing:0.1em;text-transform:uppercase;margin-bottom:2px;}
+.ntip-label{font-size:11px;margin-bottom:2px;}
+.ntip-detail{font-size:9px;color:var(--text2);line-height:1.5;}
+
+/* ── RIGHT: CONVERSATION PANEL ── */
+.conv-panel{display:flex;flex-direction:column;overflow:hidden;background:var(--surface);}
+.conv-panel-hdr{padding:12px 20px;border-bottom:1px solid var(--border);flex-shrink:0;
+  display:flex;align-items:center;justify-content:space-between;}
+.conv-scroll{flex:1;overflow-y:auto;padding:20px;}
+.conv-scroll::-webkit-scrollbar{width:3px;}
+.conv-scroll::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px;}
+
+/* start screen */
+.start-screen{display:flex;flex-direction:column;align-items:center;justify-content:center;
+  height:100%;gap:20px;padding:32px;text-align:center;}
+.start-title{font-family:'Cormorant Garamond',serif;font-size:28px;font-weight:300;line-height:1.35;}
+.start-title em{font-style:italic;color:var(--accent);}
+.start-sub{font-family:'DM Mono',monospace;font-size:10px;color:var(--text2);
+  letter-spacing:0.07em;line-height:1.9;max-width:320px;}
+.start-btn{margin-top:8px;background:var(--accent);color:var(--bg);border:none;
+  font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.1em;text-transform:uppercase;
+  padding:14px 32px;border-radius:4px;cursor:pointer;transition:opacity 0.15s;
+  display:flex;align-items:center;gap:8px;}
+.start-btn:hover{opacity:0.88;}
+.start-btn:disabled{opacity:0.4;cursor:not-allowed;}
+.resume-preview{background:var(--surface2);border:1px solid var(--border2);border-radius:6px;
+  padding:14px 16px;max-height:120px;overflow:hidden;position:relative;width:100%;}
+.resume-preview::after{content:'';position:absolute;bottom:0;left:0;right:0;height:40px;
+  background:linear-gradient(transparent,var(--surface2));}
+.resume-preview p{font-family:'DM Mono',monospace;font-size:9px;color:var(--text2);line-height:1.7;}
+
+/* messages */
+.msg{margin-bottom:20px;animation:msgIn 0.4s ease forwards;}
+@keyframes msgIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+.msg-role{font-family:'DM Mono',monospace;font-size:8px;letter-spacing:0.12em;
+  text-transform:uppercase;margin-bottom:6px;}
+.msg-role.system{color:var(--accent);}
+.msg-role.user{color:var(--text2);}
+.msg-body{font-size:13px;line-height:1.75;color:var(--text);}
+.msg-body.system{background:var(--surface2);border-left:2px solid var(--accent);
+  padding:12px 16px;border-radius:0 6px 6px 0;}
+.msg-body.user{background:rgba(59,130,246,0.06);border-left:2px solid var(--blue);
+  padding:12px 16px;border-radius:0 6px 6px 0;color:var(--text2);}
+.msg-body strong{color:var(--accent);font-weight:500;}
+.msg-body em{font-style:italic;color:var(--text2);}
+
+/* question card */
+.q-card{background:var(--bg);border:1px solid var(--border2);border-radius:8px;
+  padding:18px 20px;margin-bottom:16px;animation:msgIn 0.5s ease forwards;}
+.q-num{font-family:'DM Mono',monospace;font-size:8px;color:var(--accent);
+  letter-spacing:0.12em;text-transform:uppercase;margin-bottom:8px;}
+.q-text{font-family:'Cormorant Garamond',serif;font-size:18px;font-weight:400;
+  font-style:italic;line-height:1.5;color:var(--text);margin-bottom:14px;}
+.q-why{font-size:11px;color:var(--text2);line-height:1.65;font-style:italic;
+  padding-top:10px;border-top:1px solid var(--border);}
+
+/* answer input */
+.ans-wrap{display:flex;gap:8px;margin-bottom:8px;}
+.ans-input{flex:1;background:var(--surface2);border:1px solid var(--border2);
+  color:var(--text);font-family:'DM Sans',sans-serif;font-size:12px;line-height:1.6;
+  padding:10px 14px;border-radius:6px;outline:none;resize:none;height:72px;
+  transition:border-color 0.2s;}
+.ans-input:focus{border-color:var(--accent);}
+.ans-input::placeholder{color:var(--text3);}
+.ans-btn{background:var(--accent);color:var(--bg);border:none;
+  font-family:'DM Mono',monospace;font-size:9px;letter-spacing:0.08em;text-transform:uppercase;
+  padding:0 16px;border-radius:6px;cursor:pointer;transition:opacity 0.15s;white-space:nowrap;}
+.ans-btn:hover{opacity:0.85;}
+.ans-btn:disabled{opacity:0.4;cursor:not-allowed;}
+
+/* branch cards */
+.branches{display:flex;flex-direction:column;gap:10px;margin:16px 0;}
+.branch-card{background:var(--bg);border:1px solid var(--border2);border-radius:8px;
+  padding:16px 18px;cursor:pointer;transition:all 0.2s;position:relative;overflow:hidden;}
+.branch-card::before{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;
+  background:var(--accent);transform:scaleY(0);transition:transform 0.3s;transform-origin:bottom;}
+.branch-card:hover::before,.branch-card.selected::before{transform:scaleY(1);}
+.branch-card:hover,.branch-card.selected{border-color:var(--accent);background:var(--accent-dim);}
+.branch-num{font-family:'DM Mono',monospace;font-size:8px;color:var(--text3);
+  letter-spacing:0.1em;margin-bottom:6px;}
+.branch-title{font-family:'Cormorant Garamond',serif;font-size:17px;font-weight:400;
+  color:var(--accent);margin-bottom:6px;}
+.branch-why{font-size:11px;color:var(--text2);line-height:1.65;}
+.branch-why strong{color:var(--text);font-weight:500;}
+
+/* final reveal */
+.final-card{background:linear-gradient(135deg,rgba(232,166,64,0.08),rgba(139,92,246,0.06));
+  border:1px solid rgba(232,166,64,0.25);border-radius:10px;padding:24px;margin-top:8px;}
+.final-label{font-family:'DM Mono',monospace;font-size:8px;color:var(--accent);
+  letter-spacing:0.14em;text-transform:uppercase;margin-bottom:12px;display:flex;align-items:center;gap:8px;}
+.final-label::before{content:'';width:16px;height:1px;background:var(--accent);}
+.final-headline{font-family:'Cormorant Garamond',serif;font-size:19px;font-weight:300;
+  font-style:italic;line-height:1.55;color:var(--text);margin-bottom:14px;}
+.final-headline strong{font-style:normal;font-weight:600;color:var(--accent);}
+.final-next{font-family:'DM Mono',monospace;font-size:9px;color:var(--text2);
+  letter-spacing:0.08em;margin-top:14px;padding-top:12px;border-top:1px solid var(--border2);}
+.final-btn{margin-top:10px;background:none;border:1px solid var(--accent);color:var(--accent);
+  font-family:'DM Mono',monospace;font-size:9px;letter-spacing:0.1em;text-transform:uppercase;
+  padding:8px 18px;border-radius:4px;cursor:pointer;transition:all 0.15s;}
+.final-btn:hover{background:var(--accent-dim);}
+
+/* thinking */
+.thinking{display:flex;align-items:center;gap:6px;font-family:'DM Mono',monospace;
+  font-size:10px;color:var(--accent);padding:8px 0;}
+.thinking-dots span{display:inline-block;width:3px;height:3px;background:var(--accent);
+  border-radius:50%;animation:dp 1.2s infinite;}
+.thinking-dots span:nth-child(2){animation-delay:0.2s;}
+.thinking-dots span:nth-child(3){animation-delay:0.4s;}
+@keyframes dp{0%,100%{opacity:0.2;transform:scale(0.8)}50%{opacity:1;transform:scale(1)}}
+
+/* progress bar */
+.progress-bar{height:2px;background:var(--border);position:relative;flex-shrink:0;}
+.progress-fill{height:100%;background:var(--accent);width:0%;transition:width 0.8s ease;}
+
+/* graph stats */
+.graph-stats-bar{padding:8px 18px;border-top:1px solid var(--border);
+  display:flex;align-items:center;gap:14px;flex-shrink:0;}
+.gstat{font-family:'DM Mono',monospace;font-size:8px;color:var(--text3);letter-spacing:0.06em;}
+.gstat strong{color:var(--text2);font-weight:400;}
+.gstat-dot{width:5px;height:5px;border-radius:50%;background:var(--text3);display:inline-block;margin-right:5px;}
+.gstat-dot.live{background:var(--green);box-shadow:0 0 5px rgba(16,185,129,0.5);}
+
+/* enriched node flash */
+@keyframes nodeFlash{0%{opacity:0.4}50%{opacity:1}100%{opacity:1}}
+
+/* ── NODE DETAIL PANEL ── */
+.node-panel{
+  position:absolute;top:0;right:0;bottom:0;width:300px;
+  background:var(--surface);border-left:1px solid var(--border2);
+  display:flex;flex-direction:column;
+  transform:translateX(100%);
+  transition:transform 0.35s cubic-bezier(0.16,1,0.3,1);
+  z-index:50;
+}
+.node-panel.open{transform:translateX(0);}
+.node-panel-hdr{
+  padding:12px 16px;border-bottom:1px solid var(--border);
+  display:flex;align-items:center;justify-content:space-between;flex-shrink:0;
+}
+.node-panel-type{
+  font-family:'DM Mono',monospace;font-size:8px;letter-spacing:0.14em;
+  text-transform:uppercase;padding:2px 8px;border-radius:3px;border:1px solid currentColor;
+}
+.node-panel-close{
+  background:none;border:none;color:var(--text2);cursor:pointer;
+  font-size:18px;line-height:1;padding:0 4px;transition:color 0.15s;
+}
+.node-panel-close:hover{color:var(--text);}
+.node-panel-body{flex:1;overflow-y:auto;padding:16px;}
+.node-panel-body::-webkit-scrollbar{width:3px;}
+.node-panel-body::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px;}
+.node-field{margin-bottom:14px;}
+.node-field-label{
+  font-family:'DM Mono',monospace;font-size:8px;color:var(--text2);
+  letter-spacing:0.1em;text-transform:uppercase;margin-bottom:5px;
+}
+.node-field-val{
+  font-size:12px;line-height:1.65;color:var(--text);
+  background:var(--surface2);border:1px solid var(--border2);
+  border-radius:4px;padding:8px 10px;width:100%;
+  font-family:'DM Sans',sans-serif;outline:none;resize:none;
+  transition:border-color 0.2s;
+}
+.node-field-val:focus{border-color:var(--accent);}
+.node-connections{display:flex;flex-wrap:wrap;gap:4px;}
+.node-conn-tag{
+  font-family:'DM Mono',monospace;font-size:8px;color:var(--text2);
+  background:var(--bg);border:1px solid var(--border2);
+  padding:2px 7px;border-radius:3px;letter-spacing:0.04em;
+}
+.node-save-btn{
+  width:100%;background:none;border:1px solid var(--accent);color:var(--accent);
+  font-family:'DM Mono',monospace;font-size:9px;letter-spacing:0.08em;text-transform:uppercase;
+  padding:7px;border-radius:4px;cursor:pointer;transition:all 0.15s;margin-top:4px;
+}
+.node-save-btn:hover{background:var(--accent-dim);}
+
+/* ── NODE CHAT ── */
+.node-chat{border-top:1px solid var(--border);display:flex;flex-direction:column;flex-shrink:0;max-height:55%;}
+.node-chat-hdr{
+  padding:8px 14px;border-bottom:1px solid var(--border);
+  font-family:'DM Mono',monospace;font-size:8px;color:var(--text2);
+  letter-spacing:0.1em;text-transform:uppercase;flex-shrink:0;
+  display:flex;align-items:center;gap:6px;
+}
+.node-chat-hdr::before{content:'◆';color:var(--accent);}
+.node-chat-msgs{flex:1;overflow-y:auto;padding:10px 14px;min-height:60px;}
+.node-chat-msgs::-webkit-scrollbar{width:3px;}
+.node-chat-msgs::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px;}
+.nchat-msg{font-size:11px;line-height:1.65;margin-bottom:8px;animation:msgIn 0.3s ease forwards;}
+.nchat-msg.assistant{color:var(--text);padding-left:8px;border-left:2px solid var(--accent);}
+.nchat-msg.user{color:var(--text2);padding-left:8px;border-left:2px solid var(--border2);}
+.nchat-msg strong{color:var(--accent);font-weight:500;}
+.node-chat-input-row{display:flex;gap:6px;padding:10px 14px;border-top:1px solid var(--border);flex-shrink:0;}
+.node-chat-inp{
+  flex:1;background:var(--bg);border:1px solid var(--border2);color:var(--text);
+  font-family:'DM Sans',sans-serif;font-size:11px;padding:6px 10px;border-radius:4px;
+  outline:none;transition:border-color 0.2s;resize:none;height:52px;line-height:1.5;
+}
+.node-chat-inp:focus{border-color:var(--accent);}
+.node-chat-inp::placeholder{color:var(--text3);}
+.node-chat-send{
+  background:var(--accent);color:var(--bg);border:none;
+  font-family:'DM Mono',monospace;font-size:9px;letter-spacing:0.06em;
+  padding:0 12px;border-radius:4px;cursor:pointer;transition:opacity 0.15s;white-space:nowrap;
+}
+.node-chat-send:hover{opacity:0.85;}
+.node-chat-send:disabled{opacity:0.4;}
+
+/* drag cursor */
+.dragging{cursor:grabbing!important;}
+svg .node-g{cursor:grab;}
+svg .node-g:active{cursor:grabbing;}
+</style>
+</head>
+<body>
+
+<div class="hdr">
+  <div class="brand">
+    <div class="brand-mark"></div>
+    <div>
+      <div class="brand-name">Career OS</div>
+      <div class="brand-tag">Career Intelligence · 3 minutes to your first insight</div>
+    </div>
+  </div>
+  <div class="hdr-right" id="authStatus">
+    <span style="font-family:'DM Mono',monospace;font-size:9px;color:var(--text3);letter-spacing:0.06em;">Authenticating…</span>
+  </div>
+</div>
+
+<div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+
+<div class="main">
+
+  <!-- LEFT: GRAPH -->
+  <div class="graph-panel">
+    <div class="graph-panel-hdr">
+      <div class="panel-label">Knowledge Graph</div>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <!-- Session switcher -->
+        <div style="display:flex;border:1px solid var(--border2);border-radius:4px;overflow:hidden;">
+          <button id="sessionBtnA" onclick="switchSession('A')" style="
+            font-family:'DM Mono',monospace;font-size:8px;letter-spacing:0.08em;text-transform:uppercase;
+            padding:3px 10px;border:none;cursor:pointer;transition:all 0.2s;
+            background:var(--accent);color:var(--bg);">You</button>
+          <button id="sessionBtnB" onclick="switchSession('B')" style="
+            font-family:'DM Mono',monospace;font-size:8px;letter-spacing:0.08em;text-transform:uppercase;
+            padding:3px 10px;border:none;border-left:1px solid var(--border2);cursor:pointer;transition:all 0.2s;
+            background:var(--surface2);color:var(--text2);">Partner</button>
+        </div>
+        <div class="graph-stage-pills">
+          <div class="stage-pill" id="pill1">Extract</div>
+          <div class="stage-pill" id="pill2">Enrich</div>
+          <div class="stage-pill" id="pill3">Reveal</div>
+        </div>
+      </div>
+    </div>
+    <div class="graph-area">
+      <div id="graphSvgWrap">
+        <div id="graphPlaceholder" style="display:flex;align-items:center;justify-content:center;height:100%;flex-direction:column;gap:12px;color:var(--text3);">
+          <div style="width:48px;height:48px;border:1px dashed var(--border2);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:20px;">◈</div>
+          <p style="font-family:'DM Mono',monospace;font-size:10px;text-align:center;line-height:1.8;">Your career graph<br>builds here in real time</p>
+        </div>
+      </div>
+      <div class="graph-legend" id="graphLegend">
+        <div class="leg-item" id="leg-role"><div class="leg-dot" style="background:var(--node-role)"></div>Role</div>
+        <div class="leg-item" id="leg-skill"><div class="leg-dot" style="background:var(--node-skill)"></div>Skill</div>
+        <div class="leg-item" id="leg-project"><div class="leg-dot" style="background:var(--node-project)"></div>Project</div>
+        <div class="leg-item" id="leg-outcome"><div class="leg-dot" style="background:var(--node-outcome)"></div>Outcome</div>
+        <div class="leg-item" id="leg-decision"><div class="leg-dot" style="background:var(--node-decision)"></div>Decision</div>
+      </div>
+      <div class="ntip" id="ntip"></div>
+
+      <!-- ── PERSISTENT OUTCOME CARD STACK ── -->
+      <div class="outcome-stack" id="outcomeStack">
+
+        <!-- LAYER 1: Strength -->
+        <div class="outcome-card" id="cardStrength" style="--card-color:#e8a640;display:none;">
+          <div class="oc-tab" onclick="toggleCard('cardStrength')">
+            <span class="oc-tab-dot" style="background:#e8a640"></span>
+            <span class="oc-tab-label">Core Strength</span>
+            <span class="oc-tab-chevron" id="chevStrength">↑</span>
+          </div>
+          <div class="oc-body" id="bodyStrength">
+            <div class="oc-text" id="insightText"></div>
+          </div>
+        </div>
+
+        <!-- LAYER 2: Career Directions -->
+        <div class="outcome-card" id="cardDirections" style="--card-color:#3b82f6;display:none;">
+          <div class="oc-tab" onclick="toggleCard('cardDirections')">
+            <span class="oc-tab-dot" style="background:#3b82f6"></span>
+            <span class="oc-tab-label">Career Directions</span>
+            <span class="oc-tab-chevron" id="chevDirections">↑</span>
+          </div>
+          <div class="oc-body" id="bodyDirections"></div>
+        </div>
+
+        <!-- LAYER 3: Career Portrait -->
+        <div class="outcome-card" id="cardPortrait" style="--card-color:#10b981;display:none;">
+          <div class="oc-tab" onclick="toggleCard('cardPortrait')">
+            <span class="oc-tab-dot" style="background:#10b981"></span>
+            <span class="oc-tab-label">Career Portrait</span>
+            <span class="oc-tab-chevron" id="chevPortrait">↑</span>
+          </div>
+          <div class="oc-body" id="bodyPortrait"></div>
+        </div>
+
+      </div>
+    </div>
+    <!-- NODE DETAIL PANEL -->
+    <div class="node-panel" id="nodePanel">
+      <div class="node-panel-hdr">
+        <div class="node-panel-type" id="nodePanelType">role</div>
+        <button class="node-panel-close" onclick="closeNodePanel()">×</button>
+      </div>
+      <div class="node-panel-body">
+        <div class="node-field">
+          <div class="node-field-label">Label</div>
+          <input class="node-field-val" id="nodePanelLabel" style="height:36px;">
+        </div>
+        <div class="node-field">
+          <div class="node-field-label">Detail</div>
+          <textarea class="node-field-val" id="nodePanelDetail" rows="3"></textarea>
+        </div>
+        <div class="node-field" id="nodePanelYearWrap">
+          <div class="node-field-label">Year / Period</div>
+          <input class="node-field-val" id="nodePanelYear" style="height:36px;">
+        </div>
+        <div class="node-field">
+          <div class="node-field-label">Connected to</div>
+          <div class="node-connections" id="nodePanelConnections"></div>
+        </div>
+        <button class="node-save-btn" onclick="saveNodeEdits()">Save Changes</button>
+      </div>
+      <div class="node-chat">
+        <div class="node-chat-hdr">Ask Claude about this</div>
+        <div class="node-chat-msgs" id="nodeChatMsgs"></div>
+        <div class="node-chat-input-row">
+          <textarea class="node-chat-inp" id="nodeChatInp"
+            placeholder="Ask anything about this skill or experience…"
+            onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendNodeChat();}"></textarea>
+          <button class="node-chat-send" id="nodeChatSend" onclick="sendNodeChat()">Ask →</button>
+        </div>
+      </div>
+    </div>
+    <div class="graph-stats-bar">
+      <div class="gstat"><span class="gstat-dot" id="liveDot"></span>Nodes: <strong id="nodeCount">0</strong></div>
+      <div class="gstat">Edges: <strong id="edgeCount">0</strong></div>
+      <div class="gstat" id="enrichStat" style="display:none;">Enriched: <strong id="enrichCount" style="color:var(--green)">0</strong></div>
+    </div>
+  </div>
+
+  <!-- RIGHT: CONVERSATION -->
+  <div class="conv-panel">
+    <div class="conv-panel-hdr">
+      <div class="panel-label">Career Intelligence Session</div>
+      <div style="font-family:'DM Mono',monospace;font-size:8px;color:var(--text3);letter-spacing:0.08em;" id="stepLabel">Step 0 of 5</div>
+    </div>
+    <div class="conv-scroll" id="convScroll">
+
+      <!-- Start screen -->
+      <div class="start-screen" id="startScreen">
+        <div class="start-title">Your career is a <em>graph</em>,<br>not a document.</div>
+        <div class="start-sub">
+          Paste your resume below. We'll build your career graph,<br>
+          ask 4 questions to sharpen the signal, and surface<br>
+          something about you that you couldn't see yourself.<br><br>
+          Takes about 3 minutes.
+        </div>
+        <textarea id="resumeInput"
+          style="width:100%;height:130px;background:var(--surface2);border:1px solid var(--border2);
+          color:var(--text);font-family:'DM Mono',monospace;font-size:10px;line-height:1.7;
+          padding:12px 14px;border-radius:6px;resize:none;outline:none;transition:border-color 0.2s;"
+          placeholder="Paste your resume text here — copy from Word, PDF, or LinkedIn. The more detail the better."
+          onfocus="this.style.borderColor='var(--accent)'"
+          onblur="this.style.borderColor='var(--border2)'"></textarea>
+        <button class="start-btn" id="startBtn" onclick="startSession()" style="width:100%;">
+          <span>◆</span> Build My Graph
+        </button>
+        <div style="font-family:'DM Mono',monospace;font-size:8px;color:var(--text3);letter-spacing:0.06em;text-align:center;">
+          Your resume is processed securely and not stored
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- ── AUTH OVERLAY ─────────────────────────────────── -->
+<div id="authOverlay" style="position:fixed;inset:0;z-index:500;background:#08090f;display:flex;align-items:center;justify-content:center;">
+  <div style="max-width:380px;width:100%;margin:0 24px;padding:36px 40px 40px;background:#0f1018;border:1px solid #232840;border-radius:10px;">
+    <!-- Brand -->
+    <div style="text-align:center;margin-bottom:28px;">
+      <div style="width:34px;height:34px;border:1.5px solid #e8a640;border-radius:7px;display:inline-flex;align-items:center;justify-content:center;margin-bottom:12px;">
+        <div style="width:8px;height:8px;background:#e8a640;border-radius:50%;"></div>
+      </div>
+      <div style="font-family:'Cormorant Garamond',serif;font-size:22px;font-weight:400;margin-bottom:4px;">Career OS</div>
+      <div style="font-family:'DM Mono',monospace;font-size:9px;color:#6b7fa3;letter-spacing:0.12em;text-transform:uppercase;">Career Intelligence Graph</div>
+    </div>
+    <!-- Sign In / Sign Up tabs -->
+    <div style="display:flex;border:1px solid #232840;border-radius:6px;margin-bottom:22px;overflow:hidden;">
+      <button id="authTabSignIn" onclick="setAuthTab('signin')"
+        style="flex:1;padding:9px;font-family:'DM Mono',monospace;font-size:9px;letter-spacing:0.1em;
+        text-transform:uppercase;border:none;cursor:pointer;transition:all 0.2s;background:#e8a640;color:#08090f;">
+        Sign In
+      </button>
+      <button id="authTabSignUp" onclick="setAuthTab('signup')"
+        style="flex:1;padding:9px;font-family:'DM Mono',monospace;font-size:9px;letter-spacing:0.1em;
+        text-transform:uppercase;border:none;border-left:1px solid #232840;cursor:pointer;transition:all 0.2s;background:#141622;color:#6b7fa3;">
+        Sign Up
+      </button>
+    </div>
+    <!-- Form fields -->
+    <div id="authForm">
+      <label style="font-family:'DM Mono',monospace;font-size:9px;color:#6b7fa3;letter-spacing:0.1em;text-transform:uppercase;display:block;margin-bottom:6px;">Email</label>
+      <input type="email" id="authEmail"
+        style="width:100%;background:#141622;border:1px solid #232840;color:#d0daf0;
+        font-family:'DM Mono',monospace;font-size:12px;padding:10px 14px;border-radius:6px;
+        outline:none;transition:border-color 0.2s;margin-bottom:14px;box-sizing:border-box;"
+        placeholder="you@company.com"
+        onfocus="this.style.borderColor='#e8a640'"
+        onblur="this.style.borderColor='#232840'"
+        onkeydown="if(event.key==='Enter')submitAuth()">
+      <label style="font-family:'DM Mono',monospace;font-size:9px;color:#6b7fa3;letter-spacing:0.1em;text-transform:uppercase;display:block;margin-bottom:6px;">Password</label>
+      <input type="password" id="authPassword"
+        style="width:100%;background:#141622;border:1px solid #232840;color:#d0daf0;
+        font-family:'DM Mono',monospace;font-size:12px;padding:10px 14px;border-radius:6px;
+        outline:none;transition:border-color 0.2s;margin-bottom:16px;box-sizing:border-box;"
+        placeholder="••••••••"
+        onfocus="this.style.borderColor='#e8a640'"
+        onblur="this.style.borderColor='#232840'"
+        onkeydown="if(event.key==='Enter')submitAuth()">
+      <button onclick="submitAuth()" id="authSubmitBtn"
+        style="width:100%;background:#e8a640;color:#08090f;border:none;border-radius:6px;
+        padding:11px;font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.1em;
+        text-transform:uppercase;cursor:pointer;font-weight:500;transition:opacity 0.2s;">
+        Sign In →
+      </button>
+      <div id="authMsg" style="display:none;margin-top:12px;font-family:'DM Mono',monospace;font-size:10px;text-align:center;line-height:1.6;"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── BACKEND CONFIG ──
+const BACKEND_URL = 'https://ideal-grace-production-3e9f.up.railway.app';
+const SUPABASE_URL = 'https://rltvhwzyezkqidgcnbrw.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJsdHZod3p5ZXprcWlkZ2NuYnJ3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk4MzA5NDUsImV4cCI6MjA5NTQwNjk0NX0.bt322QHm774ekXn7WVATJb9RUCFFbX5mQhBo1k1rKLQ';
+
+// ── AUTH UI — defined first so tab switching always works ──
+let _authMode = 'signin';
+
+function setAuthTab(mode) {
+  _authMode = mode;
+  const si = document.getElementById('authTabSignIn');
+  const su = document.getElementById('authTabSignUp');
+  const btn = document.getElementById('authSubmitBtn');
+  if (mode === 'signin') {
+    si.style.background = '#e8a640'; si.style.color = '#08090f';
+    su.style.background = '#141622'; su.style.color = '#6b7fa3';
+    btn.textContent = 'Sign In →';
+  } else {
+    su.style.background = '#e8a640'; su.style.color = '#08090f';
+    si.style.background = '#141622'; si.style.color = '#6b7fa3';
+    btn.textContent = 'Create Account →';
+  }
+  document.getElementById('authMsg').style.display = 'none';
+}
+
+function showAuthMsg(html, color) {
+  const el = document.getElementById('authMsg');
+  el.innerHTML = html;
+  el.style.color = color;
+  el.style.display = 'block';
+}
+
+async function submitAuth() {
+  if (typeof supabase === 'undefined') {
+    showAuthMsg('✗ Auth library failed to load — check your internet connection and reload.', 'var(--node-decision)');
+    return;
+  }
+  const email = document.getElementById('authEmail').value.trim();
+  const password = document.getElementById('authPassword').value.trim();
+  if (!email || !password) {
+    showAuthMsg('Enter email and password to continue.', 'var(--node-decision)');
+    return;
+  }
+  const btn = document.getElementById('authSubmitBtn');
+  const orig = btn.textContent;
+  btn.textContent = 'Please wait…';
+  btn.style.opacity = '0.7';
+  btn.disabled = true;
+  document.getElementById('authMsg').style.display = 'none';
+
+  try {
+    if (_authMode === 'signup') {
+      const { data, error } = await supabase.auth.signUp({ email, password });
+      if (error) throw error;
+      if (data.session) {
+        // Email confirmation disabled — signed in immediately; onAuthStateChange fires
+      } else {
+        showAuthMsg('✓ Account created! Check your email to confirm, then sign in.', 'var(--green)');
+        btn.textContent = 'Create Account →';
+        btn.style.opacity = '1';
+        btn.disabled = false;
+        setAuthTab('signin');
+      }
+    } else {
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) throw error;
+      // onAuthStateChange handles the rest
+    }
+  } catch(e) {
+    showAuthMsg('✗ ' + e.message, 'var(--node-decision)');
+    btn.textContent = orig;
+    btn.style.opacity = '1';
+    btn.disabled = false;
+  }
+}
+
+function signOut() {
+  if (typeof supabase !== 'undefined') supabase.auth.signOut().then(() => location.reload());
+  else location.reload();
+}
+
+// ── SUPABASE CLIENT — init after auth UI functions ──
+let supabase;
+try {
+  supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+} catch(e) {
+  console.error('Supabase init failed:', e);
+  // Auth UI functions still work; submitAuth will show the error message above
+}
+
+// ── BACKEND API ──
+async function callBackend(path, body = {}) {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session?.access_token) throw new Error('Not authenticated');
+  const res = await fetch(`${BACKEND_URL}/api/v1/${path}`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${session.access_token}`
+    },
+    body: JSON.stringify(body)
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || `HTTP ${res.status}`);
+  }
+  return res.json();
+}
+
+async function fetchBackend(path) {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session?.access_token) throw new Error('Not authenticated');
+  const res = await fetch(`${BACKEND_URL}/api/v1/${path}`, {
+    headers: { 'Authorization': `Bearer ${session.access_token}` }
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || `HTTP ${res.status}`);
+  }
+  return res.json();
+}
+
+// ── STATE ──
+const RESUME = `KISHORE KANCHANPALLI
+Analytics Engineering & Product Data Leader | Dublin, CA
+
+EXECUTIVE SUMMARY
+Analytics engineering leader who builds product data foundations from scratch. At Salesforce, started as a solo technical IC with one report, identified that the entire PLG motion was architecturally blocked by log-based, siloed instrumentation, and built the case for a platform-level fix. Personally designed the event schema architecture, produced instrumentation standards, and drove adoption across engineering and product teams — then hired organically to a 13-person analytics engineering team as value proved out, eventually scaling to a 30-person global organization.
+Core expertise: product instrumentation strategy, event-based schema design, unified customer intelligence systems, self-service analytics platforms. Experienced building governed, low-latency pipelines for real-time activation, behavioral analytics, and AI-assisted workflows.
+
+EXPERIENCE
+Salesforce | Sr. Director, Data Engineering (promoted from Director) | 2020–Present
+- Started as sole analytics engineering IC with one report. Made foundational architectural and modeling decisions.
+- Event schema architecture: Designed and drove adoption of standard event-based instrumentation schema across Salesforce products, replacing log pipelines with governed, low-latency event streams. Personally designed event taxonomy, schema standards, instrumentation requirements.
+- Unified customer intelligence: First time in Salesforce history all products instrument to shared schema — unified customer view with drill-down to feature-level interactions across portfolio.
+- PLG activation: Low-latency event signals enabled attrition modeling, nudge campaigns, behavioral email targeting. Email campaigns achieved 2x open rates. Nudge engine contributed to $100M+ influenced revenue.
+- Self-service analytics: Standardized metrics, governed dashboards enabling Product, GTM, Customer Success to answer behavioral questions without engineering dependency.
+- Governance: GDPR-compliant telemetry governance, privacy-aware instrumentation practices.
+- Executive reporting: Trusted metrics for CEO quarterly business reviews and board-level planning.
+- Team: Grew from solo IC to 13-person analytics engineering team, subsequently expanded to 30-person global org across US and India.
+
+Salesforce | Data Analytics Lead / Sr. Growth Analyst | 2016–2020
+- Primary analytics partner for Voice of Customer and Community products.
+- NPS and community engagement analytics for VP and GM-level stakeholders.
+- Metric drift detection: Built Python/Prophet-based anomaly detection system with global holiday and seasonal awareness — shifted team from reactive to proactive on data quality. Built without being asked.
+- Community product analytics: Cross-product behavioral analysis for newly launched Community product.
+
+Salesforce | Sr. Data Engineer | 2014–2016
+- Built and scaled analytics pipelines for product adoption reporting.
+- Re-architected ETL pipelines for resiliency and restartability — recoverable from failure without full reruns.
+
+Cisco | Sr. Data Engineer / Data Engineer | 2004–2013
+- CFO-level daily financial reporting system — full P&L visibility at nightly cadence across global business units.
+- High-stakes reporting where accuracy and reliability were non-negotiable.
+- Operated central data warehouse serving governed metrics across global finance and operational teams.
+
+THOUGHT LEADERSHIP
+Substack: Agentic Analytics Architecture
+- "Your Semantic Layer Has a Blind Spot"
+- "The Architecture That Makes Data Agents Actually Reliable"
+
+EDUCATION
+MIT — Applied Generative AI for Digital Transformation (2024)
+UC Berkeley — Art and Science of Communication & Storytelling
+Osmania University — B.E. Electrical & Electronics (2003)`;
+
+const QUESTIONS = [
+  {
+    num: "Question 1 of 4",
+    text: "Tell me about something significant you built or changed that nobody asked you to.",
+    why: "Resumes document assignments. This surfaces your initiative pattern — the decisions you made before anyone knew they needed to be made. It's the highest-signal node for predicting how you'll operate in new environments."
+  },
+  {
+    num: "Question 2 of 4",
+    text: "What do colleagues bring to you that they don't bring to anyone else on your team?",
+    why: "This surfaces tacit expertise — the thing you've become known for that exists nowhere in your job description. It's usually the most differentiated thing about you, and the thing you've stopped noticing because it feels obvious."
+  },
+  {
+    num: "Question 3 of 4",
+    text: "Which parts of your work in the last two years made you lose track of time — and which felt like a tax?",
+    why: "Resumes list everything with equal weight. This tells us which nodes are growing edges and which are terminal — what you'll keep developing vs. what you've been executing out of obligation. It determines which branches are actually reachable for you."
+  },
+  {
+    num: "Question 4 of 4",
+    text: "What's the hardest decision you've made in your career — not technically hard, but consequentially hard?",
+    why: "This surfaces your decision architecture — the judgment quality and risk tolerance underlying your trajectory. It's almost always the most revealing thing in the session, and usually something you've never articulated as a career signal before."
+  }
+];
+
+// ── SESSION STATE — isolated per user ──
+const STORAGE_KEY = 'career_os_sessions_v1';
+
+// What gets persisted (excludes DOM elements: svgNodeEls, svgEdgeEls)
+const PERSIST_FIELDS = [
+  'session_id','graphData','answers','enrichCount','step','nodePositions',
+  'nodeChatHistory','convHTML','scrollTop','cardStates','branches','selectedBranch'
+];
+
+const sessions = {
+  A: { session_id:null, graphData:null, svgNodeEls:{}, svgEdgeEls:[], answers:[], enrichCount:0, step:0, nodePositions:{}, nodeChatHistory:{}, branches:null, selectedBranch:null },
+  B: { session_id:null, graphData:null, svgNodeEls:{}, svgEdgeEls:[], answers:[], enrichCount:0, step:0, nodePositions:{}, nodeChatHistory:{}, branches:null, selectedBranch:null }
+};
+let currentSession = 'A';
+
+// ── PERSISTENCE ──
+function saveSessions() {
+  try {
+    // Snapshot current DOM state before saving
+    const scroll = document.getElementById('convScroll');
+    if (scroll) {
+      S().convHTML = scroll.innerHTML;
+      S().scrollTop = scroll.scrollTop;
+    }
+    // Save card states
+    S().cardStates = {
+      strength: { visible: !document.getElementById('cardStrength')?.classList.contains('collapsed') && document.getElementById('cardStrength')?.style.display !== 'none', html: document.getElementById('insightText')?.innerHTML||'' },
+      directions: { visible: !document.getElementById('cardDirections')?.classList.contains('collapsed') && document.getElementById('cardDirections')?.style.display !== 'none', html: document.getElementById('bodyDirections')?.innerHTML||'' },
+      portrait: { visible: !document.getElementById('cardPortrait')?.classList.contains('collapsed') && document.getElementById('cardPortrait')?.style.display !== 'none', html: document.getElementById('bodyPortrait')?.innerHTML||'' }
+    };
+    // Also save current node positions from live SVG
+    Object.keys(S().svgNodeEls).forEach(id => {
+      const el = S().svgNodeEls[id];
+      if (el?.circle) {
+        S().nodePositions[id] = {
+          x: parseFloat(el.circle.getAttribute('cx')),
+          y: parseFloat(el.circle.getAttribute('cy'))
+        };
+      }
+    });
+
+    const toSave = {};
+    ['A','B'].forEach(sid => {
+      toSave[sid] = {};
+      PERSIST_FIELDS.forEach(f => { toSave[sid][f] = sessions[sid][f]; });
+    });
+    toSave._currentSession = currentSession;
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(toSave));
+  } catch(e) {
+    console.warn('Could not save session:', e);
+  }
+}
+
+function loadSessions() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return false;
+    const saved = JSON.parse(raw);
+    ['A','B'].forEach(sid => {
+      if (saved[sid]) {
+        PERSIST_FIELDS.forEach(f => {
+          if (saved[sid][f] !== undefined) sessions[sid][f] = saved[sid][f];
+        });
+      }
+    });
+    if (saved._currentSession) currentSession = saved._currentSession;
+    return true;
+  } catch(e) {
+    console.warn('Could not load session:', e);
+    return false;
+  }
+}
+
+function clearSessions() {
+  if (!confirm('Clear all saved sessions? This cannot be undone.')) return;
+  // Delete backend sessions for both slots (fire-and-forget)
+  supabase.auth.getSession().then(({ data: { session } }) => {
+    if (!session?.access_token) return;
+    ['A','B'].forEach(slot => {
+      const sid = sessions[slot].session_id;
+      if (!sid) return;
+      fetch(`${BACKEND_URL}/api/v1/sessions/${sid}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${session.access_token}` }
+      }).catch(() => {});
+    });
+  });
+
+  localStorage.removeItem(STORAGE_KEY);
+  ['A','B'].forEach(sid => {
+    sessions[sid] = { session_id:null, graphData:null, svgNodeEls:{}, svgEdgeEls:[], answers:[], enrichCount:0, step:0, nodePositions:{}, nodeChatHistory:{}, branches:null, selectedBranch:null };
+  });
+  currentSession = 'A';
+  location.reload();
+}
+
+// Debounced save — don't hammer localStorage on every drag event
+let _saveTimer = null;
+function saveDebounced(delay=800) {
+  clearTimeout(_saveTimer);
+  _saveTimer = setTimeout(saveSessions, delay);
+}
+
+// Proxy getters/setters so existing code works without changes
+function S() { return sessions[currentSession]; }
+Object.defineProperty(window, 'graphData',      { get:()=>S().graphData,      set:v=>{ S().graphData=v; saveDebounced(); }});
+Object.defineProperty(window, 'svgNodeEls',     { get:()=>S().svgNodeEls,     set:v=>S().svgNodeEls=v });
+Object.defineProperty(window, 'svgEdgeEls',     { get:()=>S().svgEdgeEls,     set:v=>S().svgEdgeEls=v });
+Object.defineProperty(window, 'answers',        { get:()=>S().answers,        set:v=>{ S().answers=v; saveDebounced(); }});
+Object.defineProperty(window, 'enrichCount',    { get:()=>S().enrichCount,    set:v=>{ S().enrichCount=v; saveDebounced(); }});
+Object.defineProperty(window, 'step',           { get:()=>S().step,           set:v=>S().step=v });
+Object.defineProperty(window, 'nodePositions',  { get:()=>S().nodePositions,  set:v=>S().nodePositions=v });
+Object.defineProperty(window, 'nodeChatHistory',{ get:()=>S().nodeChatHistory,set:v=>{ S().nodeChatHistory=v; saveDebounced(); }});
+
+function switchSession(id) {
+  // Snapshot current state before switching
+  saveSessions();
+
+  currentSession = id;
+
+  // Update tab styling
+  const btnA = document.getElementById('sessionBtnA');
+  const btnB = document.getElementById('sessionBtnB');
+  if (id === 'A') {
+    btnA.style.background = 'var(--accent)'; btnA.style.color = 'var(--bg)';
+    btnB.style.background = 'var(--surface2)'; btnB.style.color = 'var(--text2)';
+  } else {
+    btnB.style.background = 'var(--accent)'; btnB.style.color = 'var(--bg)';
+    btnA.style.background = 'var(--surface2)'; btnA.style.color = 'var(--text2)';
+  }
+
+  restoreSession();
+}
+
+// Restore current session's UI state
+function restoreSession() {
+  const scroll = document.getElementById('convScroll');
+  scroll.innerHTML = S().convHTML || '';
+  setTimeout(() => scroll.scrollTop = S().scrollTop || 0, 50);
+
+  // Restore card states
+  const cs = S().cardStates;
+  if (cs) {
+    if (cs.strength?.html) { document.getElementById('insightText').innerHTML = cs.strength.html; showCard('cardStrength', false); if (!cs.strength.visible) collapseCard('cardStrength'); }
+    if (cs.directions?.html) { document.getElementById('bodyDirections').innerHTML = cs.directions.html; showCard('cardDirections', false); if (!cs.directions.visible) collapseCard('cardDirections'); }
+    if (cs.portrait?.html) { document.getElementById('bodyPortrait').innerHTML = cs.portrait.html; showCard('cardPortrait', false); if (!cs.portrait.visible) collapseCard('cardPortrait'); }
+  }
+
+  closeNodePanel();
+  const wrap = document.getElementById('graphSvgWrap');
+  const existing = wrap.querySelector('svg');
+  if (existing) existing.remove();
+
+  if (S().graphData) {
+    rerenderGraph();
+    document.getElementById('graphPlaceholder').style.display = 'none';
+    document.getElementById('nodeCount').textContent = S().graphData.nodes.length;
+    document.getElementById('edgeCount').textContent = S().graphData.edges.length;
+    document.getElementById('enrichStat').style.display = S().enrichCount > 0 ? 'flex' : 'none';
+    document.getElementById('enrichCount').textContent = S().enrichCount;
+    document.getElementById('liveDot').classList.add('live');
+    ['role','skill','project','outcome','decision'].forEach(t => {
+      const el = document.getElementById('leg-'+t);
+      if (el) el.classList.add('show');
+    });
+    document.getElementById('graphLegend').style.display = 'flex';
+  } else {
+    document.getElementById('graphPlaceholder').style.display = 'flex';
+    document.getElementById('nodeCount').textContent = '0';
+    document.getElementById('edgeCount').textContent = '0';
+    document.getElementById('enrichStat').style.display = 'none';
+    document.getElementById('liveDot').classList.remove('live');
+    ['role','skill','project','outcome','decision'].forEach(t => {
+      const el = document.getElementById('leg-'+t);
+      if (el) el.classList.remove('show');
+    });
+  }
+
+  if (S().step) setStep(S().step);
+  else setStep(0);
+
+  // Update session tab to match current
+  const btnA = document.getElementById('sessionBtnA');
+  const btnB = document.getElementById('sessionBtnB');
+  if (currentSession === 'A') {
+    btnA.style.background = 'var(--accent)'; btnA.style.color = 'var(--bg)';
+    btnB.style.background = 'var(--surface2)'; btnB.style.color = 'var(--text2)';
+  } else {
+    btnB.style.background = 'var(--accent)'; btnB.style.color = 'var(--bg)';
+    btnA.style.background = 'var(--surface2)'; btnA.style.color = 'var(--text2)';
+  }
+}
+
+// Re-render graph at saved positions (no physics re-run)
+function rerenderGraph() {
+  const data = S().graphData;
+  if (!data) return;
+  S().svgNodeEls = {};
+  S().svgEdgeEls = [];
+
+  const wrap = document.getElementById('graphSvgWrap');
+  const W = wrap.clientWidth || 700, H = wrap.clientHeight || 480;
+  const TC = {role:'#3b82f6',skill:'#10b981',project:'#8b5cf6',outcome:'#f59e0b',decision:'#ef4444'};
+  const TR = {role:14,skill:10,project:12,outcome:11,decision:13};
+
+  // Use saved positions or fallback to center
+  const nodes = data.nodes.map(n => ({
+    ...n,
+    x: S().nodePositions[n.id]?.x ?? W/2 + (Math.random()-0.5)*W*0.5,
+    y: S().nodePositions[n.id]?.y ?? H/2 + (Math.random()-0.5)*H*0.5,
+    r: (TR[n.type]||10) + (n.weight||1)*2
+  }));
+  const nm = {}; nodes.forEach(n => nm[n.id] = n);
+  const edges = data.edges.filter(e => nm[e.source] && nm[e.target]);
+
+  const svg = document.createElementNS('http://www.w3.org/2000/svg','svg');
+  svg.setAttribute('width',W); svg.setAttribute('height',H);
+  svg.style.cssText='position:absolute;top:0;left:0;';
+
+  const defs = document.createElementNS('http://www.w3.org/2000/svg','defs');
+  function mkM(id,col){const m=document.createElementNS('http://www.w3.org/2000/svg','marker');m.setAttribute('id',id);m.setAttribute('markerWidth','6');m.setAttribute('markerHeight','6');m.setAttribute('refX','5');m.setAttribute('refY','3');m.setAttribute('orient','auto');const p=document.createElementNS('http://www.w3.org/2000/svg','path');p.setAttribute('d','M0,0 L0,6 L6,3 z');p.setAttribute('fill',col);m.appendChild(p);return m;}
+  defs.appendChild(mkM('ad','#1e2840'));defs.appendChild(mkM('ah','#e8a640'));
+  const gf=document.createElementNS('http://www.w3.org/2000/svg','filter');gf.setAttribute('id','gf');gf.setAttribute('x','-60%');gf.setAttribute('y','-60%');gf.setAttribute('width','220%');gf.setAttribute('height','220%');
+  const fb=document.createElementNS('http://www.w3.org/2000/svg','feGaussianBlur');fb.setAttribute('stdDeviation','5');fb.setAttribute('result','blur');
+  const fm=document.createElementNS('http://www.w3.org/2000/svg','feMerge');const fn1=document.createElementNS('http://www.w3.org/2000/svg','feMergeNode');fn1.setAttribute('in','blur');const fn2=document.createElementNS('http://www.w3.org/2000/svg','feMergeNode');fn2.setAttribute('in','SourceGraphic');fm.appendChild(fn1);fm.appendChild(fn2);gf.appendChild(fb);gf.appendChild(fm);defs.appendChild(gf);svg.appendChild(defs);
+
+  const ntip = document.getElementById('ntip');
+
+  // Edges
+  const eG = document.createElementNS('http://www.w3.org/2000/svg','g');
+  edges.forEach(e => {
+    const a=nm[e.source],b=nm[e.target];if(!a||!b)return;
+    const line=document.createElementNS('http://www.w3.org/2000/svg','line');
+    line.setAttribute('x1',a.x);line.setAttribute('y1',a.y);line.setAttribute('x2',b.x);line.setAttribute('y2',b.y);
+    line.setAttribute('stroke','#1a1e30');line.setAttribute('stroke-width','1.5');line.setAttribute('marker-end','url(#ad)');
+    eG.appendChild(line);
+    S().svgEdgeEls.push({line,sourceId:e.source,targetId:e.target});
+  });
+  svg.appendChild(eG);
+
+  // Nodes
+  const nG = document.createElementNS('http://www.w3.org/2000/svg','g');
+  nodes.forEach(n => {
+    const g=document.createElementNS('http://www.w3.org/2000/svg','g');g.style.cursor='pointer';
+    const color=TC[n.type]||'#6b7fa3';
+    const glow=document.createElementNS('http://www.w3.org/2000/svg','circle');glow.setAttribute('cx',n.x);glow.setAttribute('cy',n.y);glow.setAttribute('r',n.r+8);glow.setAttribute('fill',color);glow.setAttribute('opacity','0.07');glow.style.transition='opacity 0.4s,fill 0.4s';
+    if(n.weight===3){const a=document.createElementNS('http://www.w3.org/2000/svg','animate');a.setAttribute('attributeName','opacity');a.setAttribute('values','0.06;0.16;0.06');a.setAttribute('dur',(2.5+Math.random()*1.5)+'s');a.setAttribute('repeatCount','indefinite');glow.appendChild(a);}
+    g.appendChild(glow);
+    const c=document.createElementNS('http://www.w3.org/2000/svg','circle');c.setAttribute('cx',n.x);c.setAttribute('cy',n.y);c.setAttribute('r',n.r);c.setAttribute('fill','#0f1018');c.setAttribute('stroke',color);c.setAttribute('stroke-width',n.weight===3?'2':'1.5');c.style.transition='stroke 0.4s,stroke-width 0.3s';g.appendChild(c);
+    if(n.weight===3){const dot=document.createElementNS('http://www.w3.org/2000/svg','circle');dot.setAttribute('cx',n.x);dot.setAttribute('cy',n.y);dot.setAttribute('r',3);dot.setAttribute('fill',color);dot.setAttribute('opacity','0.6');g.appendChild(dot);}
+    const txt=document.createElementNS('http://www.w3.org/2000/svg','text');txt.setAttribute('x',n.x);txt.setAttribute('y',n.y+n.r+12);txt.setAttribute('text-anchor','middle');txt.setAttribute('fill','#6b7fa3');txt.setAttribute('font-family','DM Mono,monospace');txt.setAttribute('font-size','8');txt.setAttribute('letter-spacing','0.3');txt.style.transition='fill 0.3s';txt.textContent=n.label.length>18?n.label.slice(0,17)+'…':n.label;g.appendChild(txt);
+    S().svgNodeEls[n.id]={g,circle:c,glow,text:txt,color,n};
+    S().nodePositions[n.id]={x:n.x,y:n.y};
+    enableDrag(g,n.id,()=>S().nodePositions[n.id],(newX,newY)=>{S().nodePositions[n.id]={x:newX,y:newY};c.setAttribute('cx',newX);c.setAttribute('cy',newY);glow.setAttribute('cx',newX);glow.setAttribute('cy',newY);txt.setAttribute('x',newX);txt.setAttribute('y',newY+n.r+12);});
+    g.addEventListener('mouseenter',ev=>{if(dragState)return;c.setAttribute('stroke-width','2.5');glow.setAttribute('opacity','0.2');txt.setAttribute('fill',color);S().svgEdgeEls.forEach(({line,sourceId,targetId})=>{if(sourceId===n.id||targetId===n.id){line.setAttribute('stroke',color);line.setAttribute('stroke-width','2');line.setAttribute('marker-end','url(#ah)');}});ntip.style.display='block';ntip.innerHTML=`<div class="ntip-type">${n.type}${n.year?' · '+n.year:''}</div><div class="ntip-label">${n.label}</div><div class="ntip-detail">${n.detail||''}</div><div style="margin-top:4px;font-size:8px;color:var(--accent);">Click · Drag</div>`;});
+    g.addEventListener('mousemove',ev=>{if(dragState)return;const r=wrap.getBoundingClientRect();let tx=ev.clientX-r.left+12,ty=ev.clientY-r.top-10;if(tx+210>W)tx-=210;ntip.style.left=tx+'px';ntip.style.top=ty+'px';});
+    g.addEventListener('mouseleave',()=>{if(dragState)return;c.setAttribute('stroke-width',n.weight===3?'2':'1.5');glow.setAttribute('opacity','0.06');txt.setAttribute('fill','#6b7fa3');S().svgEdgeEls.forEach(({line,sourceId,targetId})=>{if(sourceId===n.id||targetId===n.id){line.setAttribute('stroke','#1a1e30');line.setAttribute('stroke-width','1.5');line.setAttribute('marker-end','url(#ad)');}});ntip.style.display='none';});
+    nG.appendChild(g);
+  });
+  svg.appendChild(nG);
+  wrap.appendChild(svg);
+}
+
+// ── API — all calls go through the backend ──
+// callBackend() and fetchBackend() are defined at the top of the script
+
+// ── UTILS ──
+function esc(s) { return (s||'').replace(/'/g,"&#39;").replace(/"/g,"&quot;"); }
+function setProgress(p) { document.getElementById('progressFill').style.width = p + '%'; }
+function setStep(n) {
+  step = n;
+  document.getElementById('stepLabel').textContent = `Step ${n} of 5`;
+  ['pill1','pill2','pill3'].forEach((id,i) => {
+    const el = document.getElementById(id);
+    el.className = 'stage-pill';
+    if (n >= (i+1)*2-1 && n < (i+1)*2+1) el.classList.add('active');
+    else if (n >= (i+1)*2) el.classList.add('done');
+  });
+}
+function scrollDown() {
+  const s = document.getElementById('convScroll');
+  setTimeout(() => s.scrollTo({ top: s.scrollHeight, behavior: 'smooth' }), 100);
+}
+function addMsg(role, html, extraClass='') {
+  const s = document.getElementById('convScroll');
+  const div = document.createElement('div');
+  div.className = 'msg';
+  div.innerHTML = `<div class="msg-role ${role}">${role === 'system' ? '◆ Career OS' : '↳ You'}</div>
+    <div class="msg-body ${role} ${extraClass}">${html}</div>`;
+  s.appendChild(div);
+  scrollDown();
+  return div;
+}
+function addThinking(label='Processing') {
+  const s = document.getElementById('convScroll');
+  const div = document.createElement('div');
+  div.className = 'msg';
+  div.innerHTML = `<div class="msg-role system">◆ Career OS</div>
+    <div class="thinking"><span>${label}</span><div class="thinking-dots"><span></span><span></span><span></span></div></div>`;
+  s.appendChild(div);
+  scrollDown();
+  return div;
+}
+
+// ── START ──
+async function startSession() {
+  const resumeText = (document.getElementById('resumeInput')?.value || '').trim();
+  if (!resumeText || resumeText.length < 100) { alert('Please paste your resume first.'); return; }
+  document.getElementById('startBtn').disabled = true;
+  document.getElementById('startScreen').style.display = 'none';
+  setStep(1);
+  setProgress(10);
+
+  // Ensure backend session exists for this slot
+  if (!S().session_id) {
+    try {
+      const sess = await callBackend('sessions', { name: 'My Career' });
+      S().session_id = sess.id;
+      saveSessions();
+    } catch(e) {
+      addMsg('system', `<span style="color:var(--node-decision)">Error creating session: ${e.message}. Please try again.</span>`);
+      document.getElementById('startBtn').disabled = false;
+      document.getElementById('startScreen').style.display = '';
+      return;
+    }
+  }
+
+  // Phase 1: Extract graph
+  const t1 = addThinking('Reading your career narrative');
+  try {
+    const extractData = await callBackend('claude/extract', {
+      session_id: S().session_id,
+      resume_text: resumeText
+    });
+
+    graphData = extractData.graph;
+    t1.remove();
+    renderGraph(graphData);
+    document.getElementById('nodeCount').textContent = S().graphData.nodes.length;
+    document.getElementById('edgeCount').textContent = graphData.edges.length;
+    document.getElementById('liveDot').classList.add('live');
+    setProgress(25);
+    setStep(2);
+    document.getElementById('pill1').className = 'stage-pill done';
+    saveSessions();
+
+    // Show legend
+    ['role','skill','project','outcome','decision'].forEach((t,i) => {
+      setTimeout(() => document.getElementById('leg-'+t).classList.add('show'), i * 120);
+    });
+
+    // Short pause then fire insight
+    await sleep(1800);
+
+    // Phase 2: Generate insight — strength-first
+    const t2 = addThinking('Identifying your core strengths');
+    const insightResp = await callBackend('claude/insight', { session_id: S().session_id });
+    const insightData = insightResp.strength;
+    t2.remove();
+
+    // Highlight strength nodes with warm pulse
+    if (insightData.pattern_nodes) highlightNodes(insightData.pattern_nodes);
+    insightData.pattern_nodes?.forEach((id, i) => {
+      const el = svgNodeEls[id]; if (!el) return;
+      setTimeout(() => {
+        el.glow.setAttribute('opacity','0.5');
+        setTimeout(() => el.glow.setAttribute('opacity','0.22'), 600);
+      }, i * 150 + 200);
+    });
+
+    // Type out insight
+    await typeInsight(insightData.insight.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>'));
+    setProgress(40);
+
+    addMsg('system', `That strength is real — and it shows up across <strong>${S().graphData.nodes.length} nodes</strong> in your graph. Now I want to make it sharper. Four quick questions that surface what resumes always miss. Your answers enrich the graph in real time and make the insight more precise.`);
+
+    await sleep(600);
+    showQuestion(0);
+
+  } catch(err) {
+    t1.remove();
+    addMsg('system', `<span style="color:var(--node-decision)">Error: ${err.message}. Please try again.</span>`);
+    document.getElementById('startBtn').disabled = false;
+  }
+}
+
+// ── QUESTIONS ──
+function showQuestion(idx) {
+  if (idx >= QUESTIONS.length) { showBranches(); return; }
+  const q = QUESTIONS[idx];
+  const s = document.getElementById('convScroll');
+
+  const div = document.createElement('div');
+  div.className = 'q-card';
+  div.id = `qcard-${idx}`;
+  div.innerHTML = `
+    <div class="q-num">${q.num}</div>
+    <div class="q-text">${q.text}</div>
+    <div class="q-why">${q.why}</div>
+    <div class="ans-wrap" style="margin-top:14px;">
+      <textarea class="ans-input" id="ans-${idx}" placeholder="Take your time — be specific. A single concrete example is more valuable than a general description…"></textarea>
+      <button class="ans-btn" onclick="submitAnswer(${idx})">Submit →</button>
+    </div>`;
+  s.appendChild(div);
+  scrollDown();
+
+  // Focus after animation
+  setTimeout(() => document.getElementById(`ans-${idx}`)?.focus(), 400);
+}
+
+async function submitAnswer(idx) {
+  const val = document.getElementById(`ans-${idx}`)?.value.trim();
+  if (!val) return;
+  S().answers[idx] = val;
+
+  // Disable input
+  document.getElementById(`ans-${idx}`).disabled = true;
+  document.querySelector(`#qcard-${idx} .ans-btn`).disabled = true;
+
+  addMsg('user', val);
+  setProgress(40 + (idx + 1) * 10);
+
+  // Enrich graph from answer (handled by window.submitAnswer override below)
+  const t = addThinking('Enriching your graph');
+  try {
+    const ed = await callBackend('claude/enrich', {
+      session_id: S().session_id,
+      question: QUESTIONS[idx].text,
+      answer: val,
+      question_index: idx
+    });
+    t.remove();
+    if (ed.new_nodes?.length) {
+      ed.new_nodes.forEach(n => { graphData.nodes.push(n); addEnrichedNodeToGraph(n); });
+      enrichCount += ed.new_nodes.length;
+      document.getElementById('enrichStat').style.display = 'block';
+      document.getElementById('enrichCount').textContent = enrichCount;
+      document.getElementById('nodeCount').textContent = S().graphData.nodes.length;
+      addMsg('system', `<em>✦ Added to your graph:</em> ${ed.new_nodes.map(n => n.label).join(', ')}`);
+    }
+  } catch(e) {
+    t.remove();
+  }
+
+  await sleep(500);
+
+  // Next question or branches
+  if (idx < 1) {
+    showQuestion(idx + 1);
+  } else if (idx === 1) {
+    // After Q2, show branches
+    setStep(3);
+    document.getElementById('pill2').className = 'stage-pill done';
+    addMsg('system', `Your graph now has <strong>${S().graphData.nodes.length} nodes</strong>. The pattern is clear enough to show you three non-obvious directions your career is pointing. Each one is derived from your graph topology — not job boards, not generic advice.`);
+    await sleep(800);
+    await showBranches();
+  } else {
+    showQuestion(idx + 1);
+  }
+}
+
+// ── BRANCHES ──
+async function showBranches() {
+  const t = addThinking('Finding where your strengths point');
+  try {
+    const branchResp = await callBackend('claude/branches', { session_id: S().session_id });
+    const branches = (branchResp.branches || []).slice(0, 3);
+    if (branches.length === 0) throw new Error('No branches returned');
+    while (branches.length < 3) branches.push(branches[branches.length-1]);
+
+    t.remove();
+
+    // Store per-session
+    S().branches = branches;
+    S().selectedBranch = null;
+    saveSessions();
+
+    // Populate directions card
+    document.getElementById('bodyDirections').innerHTML = branches.map((b,i) => `
+      <div class="dir-card" id="dirCard-${i}" onclick="selectBranchCard(${i})">
+        <div class="dir-card-header">
+          <div class="dir-card-num">Direction ${i+1}</div>
+          <div class="dir-card-timeline">${b.timeline||''}</div>
+        </div>
+        <div class="dir-card-title">${b.title}</div>
+        <div class="dir-card-why">${b.description||''}</div>
+      </div>`).join('');
+
+    collapseCard('cardStrength');
+    await sleep(200);
+    showCard('cardDirections');
+
+    addMsg('system', `Three career directions are now pinned to your graph — tap any one to select it.`);
+
+    setProgress(75);
+    setStep(4);
+
+    await sleep(500);
+    addMsg('system', `Which of these feels most alive to you? Tap one to select it — then two more questions and I'll show you exactly what to do next.`);
+    showQuestion(2);
+
+  } catch(e) {
+    t.remove();
+    addMsg('system', `<span style="color:var(--text2)">Couldn't generate your career directions right now (${e.message}). <button onclick="showBranches()" style="background:none;border:1px solid var(--accent);color:var(--accent);font-family:'DM Mono',monospace;font-size:9px;padding:3px 8px;border-radius:3px;cursor:pointer;margin-left:6px;">Try again</button></span>`);
+  }
+}
+
+function selectBranch(idx) {
+  S().selectedBranch = idx;
+  saveDebounced(500);
+}
+
+function selectBranchCard(idx) {
+  S().selectedBranch = idx;
+  document.querySelectorAll('.dir-card').forEach((c,i) => {
+    c.className = 'dir-card' + (i===idx?' selected':'');
+  });
+  saveDebounced(500);
+}
+
+// After Q3 and Q4, show final reveal
+async function showFinalReveal() {
+  setStep(5);
+  document.getElementById('pill3').className = 'stage-pill done';
+  setProgress(95);
+
+  const chosenIdx = S().selectedBranch ?? 0;
+  const t = addThinking('Celebrating your career');
+  try {
+    const synthResp = await callBackend('claude/synthesis', {
+      session_id: S().session_id,
+      chosen_branch_index: chosenIdx
+    });
+
+    const final = synthResp.portrait;
+    t.remove();
+    resetHighlight();
+
+    // Write into portrait card
+    document.getElementById('bodyPortrait').innerHTML = `
+      <div class="portrait-identity">${final.identity||'Career Identity'}</div>
+      <div class="portrait-celebration">${(final.celebration||'').replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>')}</div>
+      <div class="portrait-row">
+        <div class="portrait-row-label" style="color:var(--green);">What makes you rare</div>
+        <div class="portrait-row-val">${final.rare_factor||''}</div>
+      </div>
+      <div class="portrait-row">
+        <div class="portrait-row-label" style="color:var(--accent);">Next move · 30 days</div>
+        <div class="portrait-row-val">${final.next_action||''}</div>
+      </div>
+      <div class="portrait-row">
+        <div class="portrait-row-label" style="color:var(--text2);">What to build next</div>
+        <div class="portrait-row-val" style="font-style:italic;">${final.gap||''}</div>
+      </div>`;
+
+    collapseCard('cardDirections');
+    await sleep(200);
+    showCard('cardPortrait');
+
+    addMsg('system', `Your career portrait is ready — pinned to the graph panel above.`);
+    setProgress(100);
+    saveSessions();
+
+  } catch(e) {
+    t.remove();
+    addMsg('system', `Summary generation error: ${e.message}`);
+  }
+}
+
+// Override submitAnswer for Q3 and Q4 to trigger final reveal after Q4
+const _origSubmit = submitAnswer;
+window.submitAnswer = async function(idx) {
+  const val = document.getElementById(`ans-${idx}`)?.value.trim();
+  if (!val) return;
+  S().answers[idx] = val;
+  document.getElementById(`ans-${idx}`).disabled = true;
+  document.querySelector(`#qcard-${idx} .ans-btn`).disabled = true;
+  addMsg('user', val);
+  setProgress(40 + (idx + 1) * 10);
+
+  if (idx <= 1) {
+    // Q1, Q2 — enrich graph via backend
+    const t = addThinking('Enriching your graph');
+    try {
+      const ed = await callBackend('claude/enrich', {
+        session_id: S().session_id,
+        question: QUESTIONS[idx].text,
+        answer: val,
+        question_index: idx
+      });
+      t.remove();
+      if (ed.new_nodes?.length) {
+        ed.new_nodes.forEach(n => { graphData.nodes.push(n); addEnrichedNodeToGraph(n); });
+        enrichCount += ed.new_nodes.length;
+        document.getElementById('enrichStat').style.display = 'block';
+        document.getElementById('enrichCount').textContent = enrichCount;
+        document.getElementById('nodeCount').textContent = S().graphData.nodes.length;
+        addMsg('system', `<em>✦ Added to your graph:</em> ${ed.new_nodes.length} new node${ed.new_nodes.length > 1 ? 's' : ''} — ${ed.new_nodes.map(n => n.label).join(', ')}`);
+      }
+    } catch(e) { t.remove(); }
+
+    await sleep(400);
+    if (idx === 0) showQuestion(1);
+    else {
+      setStep(3);
+      document.getElementById('pill2').className = 'stage-pill done';
+      addMsg('system', `That's a great signal. Your graph now has <strong>${S().graphData.nodes.length} nodes</strong> — enough to show you three directions your strengths make possible.`);
+      await sleep(600);
+      await showBranches();
+    }
+  } else if (idx === 2) {
+    // Q3 — enrich silently (saves answer to DB), then show Q4
+    callBackend('claude/enrich', {
+      session_id: S().session_id,
+      question: QUESTIONS[idx].text,
+      answer: val,
+      question_index: idx
+    }).then(ed => {
+      if (ed.new_nodes?.length) {
+        ed.new_nodes.forEach(n => { graphData.nodes.push(n); addEnrichedNodeToGraph(n); });
+        enrichCount += ed.new_nodes.length;
+        document.getElementById('enrichStat').style.display = 'block';
+        document.getElementById('enrichCount').textContent = enrichCount;
+        document.getElementById('nodeCount').textContent = S().graphData.nodes.length;
+      }
+    }).catch(() => {});
+    await sleep(400);
+    addMsg('system', `Love that. One last question — the most revealing one.`);
+    await sleep(400);
+    showQuestion(3);
+  } else if (idx === 3) {
+    // Q4 — enrich silently, then final reveal
+    callBackend('claude/enrich', {
+      session_id: S().session_id,
+      question: QUESTIONS[idx].text,
+      answer: val,
+      question_index: idx
+    }).then(ed => {
+      if (ed.new_nodes?.length) {
+        ed.new_nodes.forEach(n => { graphData.nodes.push(n); addEnrichedNodeToGraph(n); });
+        enrichCount += ed.new_nodes.length;
+        document.getElementById('enrichStat').style.display = 'block';
+        document.getElementById('enrichCount').textContent = enrichCount;
+        document.getElementById('nodeCount').textContent = S().graphData.nodes.length;
+      }
+    }).catch(() => {});
+    await sleep(600);
+    await showFinalReveal();
+  }
+};
+
+// ── INSIGHT TYPEWRITER ──
+// ── CARD SYSTEM ──
+function showCard(cardId, animate=true) {
+  const card = document.getElementById(cardId);
+  if (!card) return;
+  card.style.display = 'block';
+  card.classList.remove('collapsed');
+  if (animate) {
+    requestAnimationFrame(() => card.classList.add('visible'));
+  } else {
+    card.classList.add('visible');
+  }
+  const chevId = 'chev' + cardId.replace('card','');
+  const chev = document.getElementById(chevId);
+  if (chev) chev.textContent = '↑';
+}
+
+function collapseCard(cardId) {
+  const card = document.getElementById(cardId);
+  if (!card) return;
+  card.classList.add('collapsed');
+  const chevId = 'chev' + cardId.replace('card','');
+  const chev = document.getElementById(chevId);
+  if (chev) chev.textContent = '↓';
+}
+
+function toggleCard(cardId) {
+  const card = document.getElementById(cardId);
+  if (!card) return;
+  if (card.classList.contains('collapsed')) {
+    card.classList.remove('collapsed');
+    const chevId = 'chev' + cardId.replace('card','');
+    const chev = document.getElementById(chevId);
+    if (chev) chev.textContent = '↑';
+  } else {
+    collapseCard(cardId);
+  }
+  saveDebounced(500);
+}
+
+// ── INSIGHT TYPEWRITER (writes into card) ──
+async function typeInsight(html) {
+  const textEl = document.getElementById('insightText');
+  showCard('cardStrength');
+
+  const plain = html.replace(/<[^>]+>/g, '');
+  textEl.innerHTML = '<span class="insight-cursor"></span>';
+
+  let i = 0;
+  await new Promise(resolve => {
+    const interval = setInterval(() => {
+      if (i >= plain.length) {
+        clearInterval(interval);
+        textEl.innerHTML = html;
+        resolve();
+        return;
+      }
+      textEl.innerHTML = plain.slice(0, i+1) + '<span class="insight-cursor"></span>';
+      i++;
+    }, 22);
+  });
+  saveDebounced(500);
+}
+
+// ── GRAPH RENDER ──
+function renderGraph(data) {
+  const wrap = document.getElementById('graphSvgWrap');
+  const placeholder = document.getElementById('graphPlaceholder');
+  if (placeholder) placeholder.style.display = 'none';
+
+  const W = wrap.clientWidth || 700;
+  const H = wrap.clientHeight || 500;
+  const TC = { role:'#3b82f6', skill:'#10b981', project:'#8b5cf6', outcome:'#f59e0b', decision:'#ef4444' };
+  const TR = { role:14, skill:10, project:12, outcome:11, decision:13 };
+
+  const nodes = data.nodes.map(n => ({
+    ...n,
+    x: W/2 + (Math.random()-0.5)*W*0.5,
+    y: H/2 + (Math.random()-0.5)*H*0.5,
+    vx:0, vy:0,
+    r: (TR[n.type]||10) + (n.weight||1)*2
+  }));
+  const nm = {}; nodes.forEach(n => nm[n.id] = n);
+  const edges = data.edges.filter(e => nm[e.source] && nm[e.target]);
+
+  for (let it = 0; it < 160; it++) {
+    for (let i = 0; i < nodes.length; i++) for (let j = i+1; j < nodes.length; j++) {
+      const dx=nodes[j].x-nodes[i].x, dy=nodes[j].y-nodes[i].y;
+      const d=Math.sqrt(dx*dx+dy*dy)||1, f=2600/(d*d);
+      nodes[i].vx-=(dx/d)*f; nodes[i].vy-=(dy/d)*f;
+      nodes[j].vx+=(dx/d)*f; nodes[j].vy+=(dy/d)*f;
+    }
+    edges.forEach(e => {
+      const a=nm[e.source],b=nm[e.target]; if(!a||!b) return;
+      const dx=b.x-a.x, dy=b.y-a.y, d=Math.sqrt(dx*dx+dy*dy)||1;
+      const f=(d-85)*0.05, fx=(dx/d)*f, fy=(dy/d)*f;
+      a.vx+=fx; a.vy+=fy; b.vx-=fx; b.vy-=fy;
+    });
+    nodes.forEach(n => {
+      n.vx+=(W/2-n.x)*0.008; n.vy+=(H/2-n.y)*0.008;
+      n.x+=n.vx*0.6; n.y+=n.vy*0.6; n.vx*=0.7; n.vy*=0.7;
+      n.x=Math.max(n.r+12,Math.min(W-n.r-12,n.x));
+      n.y=Math.max(n.r+12,Math.min(H-n.r-12,n.y));
+    });
+  }
+
+  const svg = document.createElementNS('http://www.w3.org/2000/svg','svg');
+  svg.setAttribute('width',W); svg.setAttribute('height',H);
+  svg.style.cssText='position:absolute;top:0;left:0;';
+
+  const defs = document.createElementNS('http://www.w3.org/2000/svg','defs');
+  function mkM(id,col){ const m=document.createElementNS('http://www.w3.org/2000/svg','marker');m.setAttribute('id',id);m.setAttribute('markerWidth','6');m.setAttribute('markerHeight','6');m.setAttribute('refX','5');m.setAttribute('refY','3');m.setAttribute('orient','auto');const p=document.createElementNS('http://www.w3.org/2000/svg','path');p.setAttribute('d','M0,0 L0,6 L6,3 z');p.setAttribute('fill',col);m.appendChild(p);return m; }
+  defs.appendChild(mkM('ad','#1e2840')); defs.appendChild(mkM('ah','#e8a640'));
+  const gf=document.createElementNS('http://www.w3.org/2000/svg','filter');gf.setAttribute('id','gf');gf.setAttribute('x','-60%');gf.setAttribute('y','-60%');gf.setAttribute('width','220%');gf.setAttribute('height','220%');
+  const fb=document.createElementNS('http://www.w3.org/2000/svg','feGaussianBlur');fb.setAttribute('stdDeviation','5');fb.setAttribute('result','blur');
+  const fm=document.createElementNS('http://www.w3.org/2000/svg','feMerge');const fn1=document.createElementNS('http://www.w3.org/2000/svg','feMergeNode');fn1.setAttribute('in','blur');const fn2=document.createElementNS('http://www.w3.org/2000/svg','feMergeNode');fn2.setAttribute('in','SourceGraphic');fm.appendChild(fn1);fm.appendChild(fn2);gf.appendChild(fb);gf.appendChild(fm);defs.appendChild(gf);svg.appendChild(defs);
+
+  const ntip = document.getElementById('ntip');
+  svgEdgeEls = [];
+
+  // Edges
+  const eG = document.createElementNS('http://www.w3.org/2000/svg','g');
+  edges.forEach(e => {
+    const a=nm[e.source],b=nm[e.target]; if(!a||!b) return;
+    const line=document.createElementNS('http://www.w3.org/2000/svg','line');
+    line.setAttribute('x1',a.x);line.setAttribute('y1',a.y);line.setAttribute('x2',b.x);line.setAttribute('y2',b.y);
+    line.setAttribute('stroke','#1a1e30');line.setAttribute('stroke-width','1.5');line.setAttribute('marker-end','url(#ad)');
+    line.style.opacity='0';line.style.transition='opacity 0.4s,stroke 0.4s';
+    eG.appendChild(line);
+    svgEdgeEls.push({line,sourceId:e.source,targetId:e.target});
+  });
+  svg.appendChild(eG);
+
+  // Nodes
+  const nG = document.createElementNS('http://www.w3.org/2000/svg','g');
+  svgNodeEls = {};
+  nodes.forEach(n => {
+    const g=document.createElementNS('http://www.w3.org/2000/svg','g');
+    g.style.cursor='pointer'; g.style.opacity='0'; g.style.transition='opacity 0.35s';
+    const color=TC[n.type]||'#6b7fa3';
+
+    const glow=document.createElementNS('http://www.w3.org/2000/svg','circle');
+    glow.setAttribute('cx',n.x);glow.setAttribute('cy',n.y);glow.setAttribute('r',n.r+8);
+    glow.setAttribute('fill',color);glow.setAttribute('opacity','0.06');glow.style.transition='opacity 0.4s,fill 0.4s';
+    if(n.weight===3){const a=document.createElementNS('http://www.w3.org/2000/svg','animate');a.setAttribute('attributeName','opacity');a.setAttribute('values','0.06;0.16;0.06');a.setAttribute('dur',(2.5+Math.random()*1.5)+'s');a.setAttribute('repeatCount','indefinite');glow.appendChild(a);}
+    g.appendChild(glow);
+
+    const c=document.createElementNS('http://www.w3.org/2000/svg','circle');
+    c.setAttribute('cx',n.x);c.setAttribute('cy',n.y);c.setAttribute('r',n.r);
+    c.setAttribute('fill','#0f1018');c.setAttribute('stroke',color);c.setAttribute('stroke-width',n.weight===3?'2':'1.5');
+    c.style.transition='stroke 0.4s,stroke-width 0.3s,fill 0.3s';
+    g.appendChild(c);
+
+    if(n.weight===3){const dot=document.createElementNS('http://www.w3.org/2000/svg','circle');dot.setAttribute('cx',n.x);dot.setAttribute('cy',n.y);dot.setAttribute('r',3);dot.setAttribute('fill',color);dot.setAttribute('opacity','0.6');g.appendChild(dot);}
+
+    const txt=document.createElementNS('http://www.w3.org/2000/svg','text');
+    txt.setAttribute('x',n.x);txt.setAttribute('y',n.y+n.r+12);txt.setAttribute('text-anchor','middle');
+    txt.setAttribute('fill','#6b7fa3');txt.setAttribute('font-family','DM Mono,monospace');txt.setAttribute('font-size','8');txt.setAttribute('letter-spacing','0.3');txt.style.transition='fill 0.3s';
+    txt.textContent=n.label.length>18?n.label.slice(0,17)+'…':n.label;
+    g.appendChild(txt);
+
+    svgNodeEls[n.id]={g,circle:c,glow,text:txt,color,n};
+
+    // Store initial position
+    nodePositions[n.id] = { x: n.x, y: n.y };
+
+    // ── DRAG + CLICK ──
+    enableDrag(g, n.id,
+      () => nodePositions[n.id],
+      (newX, newY) => {
+        nodePositions[n.id] = { x: newX, y: newY };
+        c.setAttribute('cx', newX); c.setAttribute('cy', newY);
+        glow.setAttribute('cx', newX); glow.setAttribute('cy', newY);
+        txt.setAttribute('x', newX); txt.setAttribute('y', newY + n.r + 12);
+        // move dot if present
+        const dot = g.querySelector('circle:nth-child(3)');
+        if (dot && n.weight === 3) { dot.setAttribute('cx', newX); dot.setAttribute('cy', newY); }
+      }
+    );
+
+    g.addEventListener('mouseenter', ev => {
+      if (dragState) return;
+      c.setAttribute('stroke-width','2.5'); glow.setAttribute('opacity','0.2'); txt.setAttribute('fill',color);
+      svgEdgeEls.forEach(({line,sourceId,targetId})=>{if(sourceId===n.id||targetId===n.id){line.setAttribute('stroke',color);line.setAttribute('stroke-width','2');line.setAttribute('marker-end','url(#ah)');}});
+      ntip.style.display='block';
+      ntip.innerHTML=`<div class="ntip-type">${n.type}${n.year?' · '+n.year:''}</div><div class="ntip-label">${n.label}</div><div class="ntip-detail">${n.detail||''}</div><div style="margin-top:4px;font-size:8px;color:var(--accent);">Click to explore · Drag to move</div>`;
+    });
+    g.addEventListener('mousemove', ev => {
+      if (dragState) return;
+      const r=wrap.getBoundingClientRect();
+      let tx=ev.clientX-r.left+12,ty=ev.clientY-r.top-10;
+      if(tx+210>W)tx-=210;
+      ntip.style.left=tx+'px';ntip.style.top=ty+'px';
+    });
+    g.addEventListener('mouseleave', () => {
+      if (dragState) return;
+      c.setAttribute('stroke-width',n.weight===3?'2':'1.5');glow.setAttribute('opacity','0.06');txt.setAttribute('fill','#6b7fa3');
+      svgEdgeEls.forEach(({line,sourceId,targetId})=>{if(sourceId===n.id||targetId===n.id){line.setAttribute('stroke','#1a1e30');line.setAttribute('stroke-width','1.5');line.setAttribute('marker-end','url(#ad)');}});
+      ntip.style.display='none';
+    });
+
+    nG.appendChild(g);
+  });
+  svg.appendChild(nG);
+  wrap.appendChild(svg);
+
+  // Staggered entrance
+  const order=['role','decision','skill','project','outcome'];
+  const sorted=[...nodes].sort((a,b)=>(order.indexOf(a.type)||99)-(order.indexOf(b.type)||99));
+  sorted.forEach((n,i)=>setTimeout(()=>{ if(svgNodeEls[n.id])svgNodeEls[n.id].g.style.opacity='1'; },60+i*45));
+  const ed=60+sorted.length*45+180;
+  svgEdgeEls.forEach(({line},i)=>setTimeout(()=>line.style.opacity='1',ed+i*12));
+}
+
+// ── ADD ENRICHED NODE ──
+function addEnrichedNodeToGraph(n) {
+  const wrap = document.getElementById('graphSvgWrap');
+  const svg = wrap.querySelector('svg'); if (!svg) return;
+  const W=parseInt(svg.getAttribute('width')), H=parseInt(svg.getAttribute('height'));
+  const TC={role:'#3b82f6',skill:'#10b981',project:'#8b5cf6',outcome:'#f59e0b',decision:'#ef4444'};
+  const color=TC[n.type]||'#10b981';
+
+  // Random position in outer ring
+  const angle=Math.random()*Math.PI*2;
+  const dist=120+Math.random()*80;
+  const cx=W/2+Math.cos(angle)*dist, cy=H/2+Math.sin(angle)*dist;
+  const r=12;
+
+  const g=document.createElementNS('http://www.w3.org/2000/svg','g');
+  g.style.opacity='0'; g.style.transition='opacity 0.5s';
+  g.style.cursor='pointer';
+
+  const glow=document.createElementNS('http://www.w3.org/2000/svg','circle');
+  glow.setAttribute('cx',cx);glow.setAttribute('cy',cy);glow.setAttribute('r',r+10);
+  glow.setAttribute('fill',color);glow.setAttribute('opacity','0.25');
+  const anim=document.createElementNS('http://www.w3.org/2000/svg','animate');
+  anim.setAttribute('attributeName','opacity');anim.setAttribute('values','0.25;0.08;0.25');
+  anim.setAttribute('dur','2s');anim.setAttribute('repeatCount','3');
+  glow.appendChild(anim);g.appendChild(glow);
+
+  const c=document.createElementNS('http://www.w3.org/2000/svg','circle');
+  c.setAttribute('cx',cx);c.setAttribute('cy',cy);c.setAttribute('r',r);
+  c.setAttribute('fill','#0f1018');c.setAttribute('stroke',color);c.setAttribute('stroke-width','2');
+  c.setAttribute('stroke-dasharray','3,2');
+  g.appendChild(c);
+
+  const txt=document.createElementNS('http://www.w3.org/2000/svg','text');
+  txt.setAttribute('x',cx);txt.setAttribute('y',cy+r+12);txt.setAttribute('text-anchor','middle');
+  txt.setAttribute('fill',color);txt.setAttribute('font-family','DM Mono,monospace');txt.setAttribute('font-size','8');txt.setAttribute('opacity','0.8');
+  txt.textContent=n.label.length>16?n.label.slice(0,15)+'…':n.label;
+  g.appendChild(txt);
+
+  svg.appendChild(g);
+  setTimeout(()=>g.style.opacity='1',50);
+  svgNodeEls[n.id]={g,circle:c,glow,text:txt,color,n};
+  nodePositions[n.id] = { x: cx, y: cy };
+
+  // Enable drag + click on enriched nodes
+  enableDrag(g, n.id,
+    () => nodePositions[n.id],
+    (newX, newY) => {
+      nodePositions[n.id] = { x: newX, y: newY };
+      c.setAttribute('cx', newX); c.setAttribute('cy', newY);
+      glow.setAttribute('cx', newX); glow.setAttribute('cy', newY);
+      txt.setAttribute('x', newX); txt.setAttribute('y', newY + r + 12);
+    }
+  );
+}
+
+// ── HIGHLIGHT NODES ──
+function highlightNodes(nodeIds) {
+  const sel=new Set(nodeIds);
+  Object.entries(svgNodeEls).forEach(([id,{circle,glow,text,color,n,g}])=>{
+    if(sel.has(id)){
+      circle.setAttribute('stroke','#e8a640');circle.setAttribute('stroke-width','2.5');
+      glow.setAttribute('fill','#e8a640');glow.setAttribute('opacity','0.2');
+      glow.setAttribute('filter','url(#gf)');text.setAttribute('fill','#e8a640');g.style.opacity='1';
+    } else {
+      g.style.opacity='0.25';text.setAttribute('fill','#2e3d5a');
+    }
+  });
+  svgEdgeEls.forEach(({line,sourceId,targetId})=>{
+    if(sel.has(sourceId)&&sel.has(targetId)){line.setAttribute('stroke','#e8a640');line.setAttribute('stroke-width','2');line.setAttribute('opacity','1');}
+    else{line.setAttribute('opacity','0.12');}
+  });
+  // Pulse selected nodes
+  nodeIds.forEach((id,i)=>{
+    const el=svgNodeEls[id]; if(!el)return;
+    setTimeout(()=>{el.glow.setAttribute('opacity','0.45');setTimeout(()=>el.glow.setAttribute('opacity','0.2'),500);},i*120);
+  });
+}
+
+function resetHighlight() {
+  Object.entries(S().svgNodeEls).forEach(([id,{circle,glow,text,color,n,g}])=>{
+    circle.setAttribute('stroke',color);circle.setAttribute('stroke-width',n.weight===3?'2':'1.5');
+    glow.setAttribute('fill',color);glow.setAttribute('opacity','0.06');glow.removeAttribute('filter');
+    text.setAttribute('fill','#6b7fa3');g.style.opacity='1';
+  });
+  S().svgEdgeEls.forEach(({line})=>{line.setAttribute('stroke','#1a1e30');line.setAttribute('stroke-width','1.5');line.setAttribute('opacity','1');});
+}
+
+
+// ── API KEY FUNCTIONS REMOVED — auth handled via Supabase magic link ──
+
+// ══════════════════════════════════════
+// INTERACTIVE GRAPH SYSTEMS
+// ══════════════════════════════════════
+
+// ── STATE ──
+let selectedNodeId = null;
+let dragState = null;
+
+// ── DRAG SYSTEM ──
+function enableDrag(g, nodeId, getPos, setPos) {
+  g.classList.add('node-g');
+
+  g.addEventListener('mousedown', ev => {
+    if (ev.button !== 0) return;
+    ev.preventDefault();
+    ev.stopPropagation();
+
+    const wrap = document.getElementById('graphSvgWrap');
+    const rect = wrap.getBoundingClientRect();
+    const pos = getPos();
+
+    dragState = {
+      nodeId,
+      startMouseX: ev.clientX - rect.left,
+      startMouseY: ev.clientY - rect.top,
+      origX: pos.x,
+      origY: pos.y,
+      moved: false
+    };
+
+    document.body.classList.add('dragging');
+
+    const onMove = ev2 => {
+      if (!dragState) return;
+      const mx = ev2.clientX - rect.left;
+      const my = ev2.clientY - rect.top;
+      const dx = mx - dragState.startMouseX;
+      const dy = my - dragState.startMouseY;
+      if (Math.abs(dx) > 3 || Math.abs(dy) > 3) dragState.moved = true;
+
+      const newX = dragState.origX + dx;
+      const newY = dragState.origY + dy;
+      setPos(newX, newY);
+      redrawEdgesForNode(nodeId, newX, newY);
+      saveDebounced(2000); // save positions after drag settles
+
+      // Hide tooltip while dragging
+      document.getElementById('ntip').style.display = 'none';
+    };
+
+    const onUp = () => {
+      document.body.classList.remove('dragging');
+      const wasMoved = dragState?.moved;
+      dragState = null;
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+
+      // If barely moved, treat as click → open panel
+      if (!wasMoved) openNodePanel(nodeId);
+    };
+
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+  });
+}
+
+function redrawEdgesForNode(nodeId, x, y) {
+  S().nodePositions[nodeId] = { x, y };
+  S().svgEdgeEls.forEach(({ line, sourceId, targetId }) => {
+    if (sourceId === nodeId) { line.setAttribute('x1', x); line.setAttribute('y1', y); }
+    if (targetId === nodeId) { line.setAttribute('x2', x); line.setAttribute('y2', y); }
+  });
+}
+
+// ── NODE PANEL ──
+const TC_COLORS = {
+  role:'#3b82f6', skill:'#10b981', project:'#8b5cf6',
+  outcome:'#f59e0b', decision:'#ef4444'
+};
+
+function openNodePanel(nodeId) {
+  const node = S().graphData?.nodes.find(n => n.id === nodeId);
+  if (!node) return;
+
+  selectedNodeId = nodeId;
+
+  // Populate fields
+  const typeEl = document.getElementById('nodePanelType');
+  typeEl.textContent = node.type;
+  typeEl.style.color = TC_COLORS[node.type] || '#6b7fa3';
+  typeEl.style.borderColor = TC_COLORS[node.type] || '#6b7fa3';
+
+  document.getElementById('nodePanelLabel').value = node.label || '';
+  document.getElementById('nodePanelDetail').value = node.detail || '';
+  document.getElementById('nodePanelYear').value = node.year || '';
+
+  // Connected nodes
+  const connEl = document.getElementById('nodePanelConnections');
+  connEl.innerHTML = '';
+  const connected = new Set();
+  S().svgEdgeEls.forEach(({ sourceId, targetId }) => {
+    if (sourceId === nodeId) connected.add(targetId);
+    if (targetId === nodeId) connected.add(sourceId);
+  });
+  connected.forEach(cid => {
+    const cn = S().graphData?.nodes.find(n => n.id === cid);
+    if (!cn) return;
+    const tag = document.createElement('div');
+    tag.className = 'node-conn-tag';
+    tag.textContent = cn.label;
+    tag.style.borderColor = TC_COLORS[cn.type] || '#6b7fa3';
+    tag.style.color = TC_COLORS[cn.type] || '#6b7fa3';
+    connEl.appendChild(tag);
+  });
+
+  // Restore chat history for this node
+  const msgs = S().nodeChatHistory[nodeId] || [];
+  const chatEl = document.getElementById('nodeChatMsgs');
+  chatEl.innerHTML = '';
+  if (msgs.length === 0) {
+    // Seed with a starter message
+    const starter = document.createElement('div');
+    starter.className = 'nchat-msg assistant';
+    starter.textContent = `Ask me anything about "${node.label}" — how to develop it further, how it's perceived in the market, or how it connects to your career direction.`;
+    chatEl.appendChild(starter);
+  } else {
+    msgs.forEach(m => addNodeChatMsg(m.role, m.content, false));
+  }
+
+  // Highlight this node on graph
+  highlightSingleNode(nodeId);
+
+  // Open panel
+  document.getElementById('nodePanel').classList.add('open');
+
+  // Focus chat input
+  setTimeout(() => document.getElementById('nodeChatInp')?.focus(), 350);
+}
+
+function closeNodePanel() {
+  document.getElementById('nodePanel').classList.remove('open');
+  selectedNodeId = null;
+  resetHighlight();
+}
+
+function saveNodeEdits() {
+  if (!selectedNodeId || !S().graphData) return;
+  const node = S().graphData?.nodes.find(n => n.id === selectedNodeId);
+  if (!node) return;
+
+  node.label = document.getElementById('nodePanelLabel').value.trim() || node.label;
+  node.detail = document.getElementById('nodePanelDetail').value.trim() || node.detail;
+  node.year = document.getElementById('nodePanelYear').value.trim() || node.year;
+
+  // Update label on graph
+  const el = S().svgNodeEls[selectedNodeId];
+  if (el) {
+    el.text.textContent = node.label.length > 18 ? node.label.slice(0,17)+'…' : node.label;
+  }
+
+  // Visual feedback
+  const btn = document.querySelector('.node-save-btn');
+  btn.textContent = '✓ Saved';
+  btn.style.color = 'var(--green)';
+  btn.style.borderColor = 'var(--green)';
+  setTimeout(() => {
+    btn.textContent = 'Save Changes';
+    btn.style.color = 'var(--accent)';
+    btn.style.borderColor = 'var(--accent)';
+  }, 1500);
+  saveSessions(); // persist node edits
+}
+
+function highlightSingleNode(nodeId) {
+  Object.entries(S().svgNodeEls).forEach(([id, { circle, glow, text, color, n, g }]) => {
+    if (id === nodeId) {
+      circle.setAttribute('stroke', color);
+      circle.setAttribute('stroke-width', '3');
+      glow.setAttribute('opacity', '0.25');
+      glow.setAttribute('filter', 'url(#gf)');
+      text.setAttribute('fill', color);
+      g.style.opacity = '1';
+    } else {
+      g.style.opacity = '0.3';
+      text.setAttribute('fill', '#2e3d5a');
+    }
+  });
+  S().svgEdgeEls.forEach(({ line, sourceId, targetId }) => {
+    if (sourceId === nodeId || targetId === nodeId) {
+      const other = sourceId === nodeId ? targetId : sourceId;
+      const color = TC_COLORS[S().svgNodeEls[other]?.n?.type] || '#6b7fa3';
+      line.setAttribute('stroke', color);
+      line.setAttribute('opacity', '0.8');
+      // Also show the connected node
+      if (S().svgNodeEls[other]) S().svgNodeEls[other].g.style.opacity = '0.7';
+    } else {
+      line.setAttribute('stroke', '#1a1e30');
+      line.setAttribute('opacity', '0.15');
+    }
+  });
+}
+
+// ── NODE CHAT ──
+function addNodeChatMsg(role, content, save = true) {
+  const el = document.createElement('div');
+  el.className = `nchat-msg ${role}`;
+  el.innerHTML = content.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+  document.getElementById('nodeChatMsgs').appendChild(el);
+  document.getElementById('nodeChatMsgs').scrollTop = 9999;
+
+  if (save && selectedNodeId) {
+    if (!S().nodeChatHistory[selectedNodeId]) S().nodeChatHistory[selectedNodeId] = [];
+    S().nodeChatHistory[selectedNodeId].push({ role, content });
+    saveDebounced(1500); // debounced — don't save on every character
+  }
+}
+
+async function sendNodeChat() {
+  const inp = document.getElementById('nodeChatInp');
+  const question = inp.value.trim();
+  if (!question || !selectedNodeId) return;
+
+  const node = S().graphData?.nodes.find(n => n.id === selectedNodeId);
+  if (!node) return;
+
+  inp.value = '';
+  addNodeChatMsg('user', question);
+
+  const btn = document.getElementById('nodeChatSend');
+  btn.disabled = true;
+  btn.textContent = '…';
+
+  try {
+    const chatResp = await callBackend('claude/node-chat', {
+      session_id: S().session_id,
+      node_id: selectedNodeId,
+      message: question
+    });
+    addNodeChatMsg('assistant', chatResp.content);
+  } catch(e) {
+    addNodeChatMsg('assistant', `Sorry — ${e.message}`);
+  }
+
+  btn.disabled = false;
+  btn.textContent = 'Ask →';
+}
+
+// ── STARTUP: Supabase auth → restore sessions ──
+document.addEventListener('DOMContentLoaded', () => {
+  // Wire up graph background click and page unload regardless of auth
+  document.getElementById('graphSvgWrap').addEventListener('click', ev => {
+    if (ev.target.tagName === 'svg' || ev.target.id === 'graphSvgWrap') closeNodePanel();
+  });
+  window.addEventListener('beforeunload', saveSessions);
+
+  // Listen for auth state changes (handles magic link redirect)
+  supabase.auth.onAuthStateChange(async (event, session) => {
+    if (session) {
+      await onAuthenticated(session.user);
+    } else {
+      showAuthOverlay();
+    }
+  });
+});
+
+function showAuthOverlay() {
+  document.getElementById('authOverlay').style.display = 'flex';
+  document.getElementById('authStatus').innerHTML =
+    `<span style="font-family:'DM Mono',monospace;font-size:9px;color:var(--text3);letter-spacing:0.06em;">Not signed in</span>`;
+}
+
+async function onAuthenticated(user) {
+  // Hide auth overlay
+  document.getElementById('authOverlay').style.display = 'none';
+
+  // Show user email + sign out in header
+  document.getElementById('authStatus').innerHTML = `
+    <span style="font-family:'DM Mono',monospace;font-size:9px;color:var(--text2);letter-spacing:0.06em;">${user.email}</span>
+    <button onclick="signOut()" style="
+      background:none;border:1px solid var(--border2);color:var(--text2);
+      font-family:'DM Mono',monospace;font-size:9px;letter-spacing:0.06em;text-transform:uppercase;
+      padding:4px 10px;border-radius:4px;cursor:pointer;transition:all 0.2s;white-space:nowrap;"
+      onmouseover="this.style.borderColor='var(--node-decision)';this.style.color='var(--node-decision)'"
+      onmouseout="this.style.borderColor='var(--border2)';this.style.color='var(--text2)'">
+      Sign Out
+    </button>
+    <button onclick="clearSessions()" style="
+      background:none;border:1px solid var(--border2);color:var(--text3);
+      font-family:'DM Mono',monospace;font-size:9px;letter-spacing:0.06em;text-transform:uppercase;
+      padding:4px 10px;border-radius:4px;cursor:pointer;transition:all 0.2s;white-space:nowrap;"
+      onmouseover="this.style.borderColor='var(--node-decision)';this.style.color='var(--node-decision)'"
+      onmouseout="this.style.borderColor='var(--border2)';this.style.color='var(--text3)'">
+      Clear ↺
+    </button>`;
+
+  // Try loading sessions from backend, fall back to localStorage cache
+  try {
+    const backendSessions = await fetchBackend('sessions');
+
+    // Populate A and B slots from backend (ordered by created_at asc)
+    ['A', 'B'].forEach((slot, idx) => {
+      const bs = backendSessions[idx];
+      if (bs) {
+        sessions[slot].session_id = bs.id;
+        sessions[slot].graphData   = bs.graph_data   || null;
+        sessions[slot].answers     = bs.answers       || [];
+        sessions[slot].enrichCount = bs.enrich_count  || 0;
+        sessions[slot].step        = bs.step          || 0;
+        sessions[slot].selectedBranch = bs.selected_branch ?? null;
+
+        // Restore branches from insights
+        if (bs.insights?.branches) {
+          sessions[slot].branches = bs.insights.branches;
+        }
+
+        // Rebuild card states from backend insights
+        const cs = {};
+        if (bs.insights?.strength?.insight) {
+          cs.strength = {
+            visible: true,
+            html: bs.insights.strength.insight.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+          };
+        }
+        if (bs.insights?.branches?.length) {
+          cs.directions = {
+            visible: true,
+            html: bs.insights.branches.slice(0,3).map((b,i) => `
+              <div class="dir-card${bs.selected_branch===i?' selected':''}" id="dirCard-${i}" onclick="selectBranchCard(${i})">
+                <div class="dir-card-header">
+                  <div class="dir-card-num">Direction ${i+1}</div>
+                  <div class="dir-card-timeline">${b.timeline||''}</div>
+                </div>
+                <div class="dir-card-title">${b.title}</div>
+                <div class="dir-card-why">${b.description||''}</div>
+              </div>`).join('')
+          };
+        }
+        if (bs.insights?.portrait) {
+          const p = bs.insights.portrait;
+          cs.portrait = {
+            visible: true,
+            html: `
+              <div class="portrait-identity">${p.identity||'Career Identity'}</div>
+              <div class="portrait-celebration">${(p.celebration||'').replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>')}</div>
+              <div class="portrait-row">
+                <div class="portrait-row-label" style="color:var(--green);">What makes you rare</div>
+                <div class="portrait-row-val">${p.rare_factor||''}</div>
+              </div>
+              <div class="portrait-row">
+                <div class="portrait-row-label" style="color:var(--accent);">Next move · 30 days</div>
+                <div class="portrait-row-val">${p.next_action||''}</div>
+              </div>
+              <div class="portrait-row">
+                <div class="portrait-row-label" style="color:var(--text2);">What to build next</div>
+                <div class="portrait-row-val" style="font-style:italic;">${p.gap||''}</div>
+              </div>`
+          };
+        }
+        if (Object.keys(cs).length) sessions[slot].cardStates = cs;
+      }
+    });
+
+    saveSessions(); // cache in localStorage
+
+    restoreSession();
+
+    // Show indicator if data was restored
+    if (backendSessions.length > 0 && backendSessions[0].graph_data) {
+      const ind = document.createElement('div');
+      ind.style.cssText = `position:fixed;bottom:16px;right:16px;background:var(--surface2);
+        border:1px solid var(--border2);border-radius:6px;padding:8px 14px;
+        font-family:'DM Mono',monospace;font-size:9px;color:var(--green);
+        letter-spacing:0.08em;z-index:999;`;
+      ind.textContent = '✓ Sessions restored';
+      document.body.appendChild(ind);
+      setTimeout(() => ind.remove(), 2500);
+    }
+  } catch(e) {
+    console.warn('Could not load sessions from backend, using localStorage cache:', e);
+    const hadSaved = loadSessions();
+    if (hadSaved) restoreSession();
+  }
+}
+
+function sleep(ms){return new Promise(r=>setTimeout(r,ms));}
+
+</script>
+</body>
+</html>
