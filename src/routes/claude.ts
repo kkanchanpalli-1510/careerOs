@@ -19,6 +19,16 @@ function responseText(response: Message) {
   return (response.content[0] as { type: string; text: string }).text;
 }
 
+/** Strip optional markdown code fences (```json ... ``` or ``` ... ```) then parse. */
+function parseJsonResponse<T = unknown>(response: Message): T {
+  let text = responseText(response).trim();
+  // Remove opening fence: ```json, ```JSON, ``` etc.
+  text = text.replace(/^```[a-zA-Z]*\n?/, '');
+  // Remove closing fence
+  text = text.replace(/\n?```\s*$/, '').trim();
+  return JSON.parse(text) as T;
+}
+
 async function callClaude(
   userId: string, sessionId: string, taskType: string,
   pkg: { system: string; user_context: string; task_prompt: string; estimated_tokens: number },
@@ -102,7 +112,7 @@ router.post('/extract', async (req: Request, res: Response) => {
     });
 
     const response = await callClaude(userId, session_id, 'graph_extraction', pkg, 3000);
-    const graph: CareerGraph = JSON.parse(responseText(response));
+    const graph: CareerGraph = parseJsonResponse<CareerGraph>(response);
 
     // raw resume text discarded here — never stored
     const skeleton = buildDeterministicSkeleton(graph, null, null);
@@ -140,7 +150,7 @@ router.post('/insight', async (req: Request, res: Response) => {
     });
 
     let response = await callClaude(userId, session_id, 'insight_generation', pkg, 400);
-    let strength: InsightStrength = JSON.parse(responseText(response));
+    let strength: InsightStrength = parseJsonResponse<InsightStrength>(response);
 
     // validate — retry once if banned words / missing reframe / no specificity
     if (!validateInsight(strength.insight)) {
@@ -149,7 +159,7 @@ router.post('/insight', async (req: Request, res: Response) => {
         task_prompt: `${pkg.task_prompt}\n\nNOTE: The previous attempt contained generic language. Regenerate with more specific behavioral evidence from the graph. Banned words include: seasoned, passionate, proven, dynamic, results-driven, strategic thinker, thought leader. The identity reframe in sentence 3 must use **bold**.`,
       };
       response = await callClaude(userId, session_id, 'insight_generation', retryPkg, 400);
-      strength = JSON.parse(responseText(response));
+      strength = parseJsonResponse<InsightStrength>(response);
     }
 
     const insights = { ...(session.insights ?? {}), strength };
@@ -182,7 +192,7 @@ router.post('/branches', async (req: Request, res: Response) => {
     });
 
     const response = await callClaude(userId, session_id, 'branch_generation', pkg, 500);
-    const branches = JSON.parse(responseText(response));
+    const branches = parseJsonResponse<unknown[]>(response);
 
     const insights = { ...(session.insights ?? {}), branches };
     await updateSession(session_id, userId, { insights });
@@ -217,7 +227,7 @@ router.post('/enrich', async (req: Request, res: Response) => {
     });
 
     const response = await callClaude(userId, session_id, 'gap_enrichment', pkg, 400);
-    const enriched: { nodes: CareerGraph['nodes']; edges: CareerGraph['edges'] } = JSON.parse(responseText(response));
+    const enriched: { nodes: CareerGraph['nodes']; edges: CareerGraph['edges'] } = parseJsonResponse<{ nodes: CareerGraph['nodes']; edges: CareerGraph['edges'] }>(response);
 
     const graph: CareerGraph = session.graph_data ?? { nodes: [], edges: [] };
     const updatedGraph: CareerGraph = {
@@ -267,7 +277,7 @@ router.post('/synthesis', async (req: Request, res: Response) => {
     });
 
     const response = await callClaude(userId, session_id, 'final_synthesis', pkg, 600);
-    const portrait = JSON.parse(responseText(response));
+    const portrait = parseJsonResponse<unknown>(response);
 
     const insights = { ...(session.insights ?? {}), portrait };
     await updateSession(session_id, userId, { insights, selected_branch: chosen_branch_index });
@@ -321,7 +331,7 @@ router.post('/project', async (req: Request, res: Response) => {
     });
 
     const response = await callClaude(userId, session_id, 'resume_projection', pkg, 800);
-    const projection = JSON.parse(responseText(response));
+    const projection = parseJsonResponse<Record<string, unknown>>(response);
 
     const insights = { ...(session.insights ?? {}), projection };
     await updateSession(session_id, userId, { insights });
