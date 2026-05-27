@@ -574,42 +574,33 @@ svg .node-g:active{cursor:grabbing;}
       <div style="font-family:'DM Mono',monospace;font-size:9px;color:#6b7fa3;letter-spacing:0.12em;text-transform:uppercase;">Career Intelligence Graph</div>
     </div>
 
-    <!-- Heading -->
-    <div id="authHeading" style="font-family:'DM Mono',monospace;font-size:11px;color:#d0daf0;letter-spacing:0.06em;margin-bottom:18px;text-align:center;">Sign in to your account</div>
-
-    <!-- Fields (shared by both modes) -->
+    <!-- Fields -->
     <label style="font-family:'DM Mono',monospace;font-size:9px;color:#6b7fa3;letter-spacing:0.1em;text-transform:uppercase;display:block;margin-bottom:6px;">Email</label>
     <input type="email" id="authEmail"
       style="width:100%;background:#141622;border:1px solid #232840;color:#d0daf0;font-family:'DM Mono',monospace;font-size:12px;padding:10px 14px;border-radius:6px;outline:none;transition:border-color 0.2s;margin-bottom:14px;box-sizing:border-box;"
       placeholder="you@company.com"
-      onfocus="this.style.borderColor='#e8a640'" onblur="this.style.borderColor='#232840'"
-      onkeydown="if(event.key==='Enter')submitAuth()">
+      onfocus="this.style.borderColor='#e8a640'" onblur="this.style.borderColor='#232840'">
 
-    <label style="font-family:'DM Mono',monospace;font-size:9px;color:#6b7fa3;letter-spacing:0.1em;text-transform:uppercase;display:block;margin-bottom:6px;">Password</label>
+    <label style="font-family:'DM Mono',monospace;font-size:9px;color:#6b7fa3;letter-spacing:0.1em;text-transform:uppercase;display:block;margin-bottom:6px;">Password <span style="color:#3a4460;font-size:8px;">(min 6 characters)</span></label>
     <input type="password" id="authPassword"
       style="width:100%;background:#141622;border:1px solid #232840;color:#d0daf0;font-family:'DM Mono',monospace;font-size:12px;padding:10px 14px;border-radius:6px;outline:none;transition:border-color 0.2s;margin-bottom:18px;box-sizing:border-box;"
-      placeholder="min 6 characters"
-      onfocus="this.style.borderColor='#e8a640'" onblur="this.style.borderColor='#232840'"
-      onkeydown="if(event.key==='Enter')submitAuth()">
+      placeholder="••••••••"
+      onfocus="this.style.borderColor='#e8a640'" onblur="this.style.borderColor='#232840'">
 
-    <!-- Submit -->
-    <button id="authSubmitBtn" onclick="submitAuth()"
-      style="width:100%;background:#e8a640;color:#08090f;border:none;border-radius:6px;padding:12px;font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.1em;text-transform:uppercase;cursor:pointer;font-weight:500;">
-      Sign In →
-    </button>
-
-    <!-- Error / success message -->
-    <div id="authMsg" style="display:none;margin-top:12px;font-family:'DM Mono',monospace;font-size:10px;text-align:center;line-height:1.6;"></div>
-
-    <!-- Toggle link -->
-    <div style="margin-top:18px;text-align:center;font-family:'DM Mono',monospace;font-size:10px;color:#6b7fa3;">
-      <span id="authToggleLabel">Don't have an account?</span>
-      &nbsp;
-      <a id="authToggleLink" href="#" onclick="toggleAuthMode();return false;"
-        style="color:#e8a640;text-decoration:none;border-bottom:1px solid rgba(232,166,64,0.4);">
+    <!-- Two always-visible buttons -->
+    <div style="display:flex;gap:10px;margin-bottom:12px;">
+      <button id="btnSignIn" onclick="doSignIn()"
+        style="flex:1;background:#e8a640;color:#08090f;border:none;border-radius:6px;padding:11px 8px;font-family:'DM Mono',monospace;font-size:10px;letter-spacing:0.08em;text-transform:uppercase;cursor:pointer;font-weight:500;">
+        Sign In
+      </button>
+      <button id="btnSignUp" onclick="doSignUp()"
+        style="flex:1;background:transparent;color:#e8a640;border:1.5px solid #e8a640;border-radius:6px;padding:11px 8px;font-family:'DM Mono',monospace;font-size:10px;letter-spacing:0.08em;text-transform:uppercase;cursor:pointer;font-weight:500;">
         Sign Up
-      </a>
+      </button>
     </div>
+
+    <!-- Message -->
+    <div id="authMsg" style="display:none;font-family:'DM Mono',monospace;font-size:10px;text-align:center;line-height:1.6;padding:8px 0;"></div>
 
   </div>
 </div>
@@ -621,18 +612,6 @@ const SUPABASE_URL = 'https://rltvhwzyezkqidgcnbrw.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJsdHZod3p5ZXprcWlkZ2NuYnJ3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk4MzA5NDUsImV4cCI6MjA5NTQwNjk0NX0.bt322QHm774ekXn7WVATJb9RUCFFbX5mQhBo1k1rKLQ';
 
 // ── AUTH UI ──
-let _authMode = 'signin'; // 'signin' | 'signup'
-
-function toggleAuthMode() {
-  _authMode = _authMode === 'signin' ? 'signup' : 'signin';
-  const isSignUp = _authMode === 'signup';
-  document.getElementById('authHeading').textContent    = isSignUp ? 'Create your account' : 'Sign in to your account';
-  document.getElementById('authSubmitBtn').textContent  = isSignUp ? 'Create Account →'    : 'Sign In →';
-  document.getElementById('authToggleLabel').textContent = isSignUp ? 'Already have an account?' : "Don't have an account?";
-  document.getElementById('authToggleLink').textContent  = isSignUp ? 'Sign In' : 'Sign Up';
-  document.getElementById('authMsg').style.display = 'none';
-  document.getElementById('authEmail').focus();
-}
 
 function showAuthMsg(html, color) {
   const el = document.getElementById('authMsg');
@@ -641,7 +620,7 @@ function showAuthMsg(html, color) {
   el.style.display = 'block';
 }
 
-async function submitAuth() {
+async function doSignIn() {
   if (typeof supabase === 'undefined') {
     showAuthMsg('✗ Auth library not loaded — check internet connection and reload.', '#ef4444');
     return;
@@ -650,37 +629,45 @@ async function submitAuth() {
   const password = document.getElementById('authPassword').value.trim();
   if (!email || !password) { showAuthMsg('Enter email and password.', '#ef4444'); return; }
 
-  const btn  = document.getElementById('authSubmitBtn');
-  const orig = btn.textContent;
-  btn.textContent = 'Please wait…';
-  btn.style.opacity = '0.6';
-  btn.disabled = true;
+  const btn = document.getElementById('btnSignIn');
+  btn.textContent = 'Signing in…'; btn.disabled = true;
   document.getElementById('authMsg').style.display = 'none';
 
   try {
-    if (_authMode === 'signup') {
-      const { data, error } = await supabase.auth.signUp({ email, password });
-      if (error) throw error;
-      if (data.session) {
-        // Email confirmation disabled → signed in immediately, onAuthStateChange fires
-      } else {
-        // Email confirmation enabled → show message and switch to sign-in
-        showAuthMsg('✓ Account created! Check your email to confirm, then sign in here.', '#10b981');
-        btn.textContent = 'Create Account →'; btn.style.opacity = '1'; btn.disabled = false;
-        _authMode = 'signin';
-        document.getElementById('authHeading').textContent    = 'Sign in to your account';
-        document.getElementById('authSubmitBtn').textContent  = 'Sign In →';
-        document.getElementById('authToggleLabel').textContent = "Don't have an account?";
-        document.getElementById('authToggleLink').textContent  = 'Sign Up';
-      }
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) throw error;
+    // onAuthStateChange fires SIGNED_IN and calls onAuthenticated()
+  } catch(e) {
+    showAuthMsg('✗ ' + e.message, '#ef4444');
+    btn.textContent = 'Sign In'; btn.disabled = false;
+  }
+}
+
+async function doSignUp() {
+  if (typeof supabase === 'undefined') {
+    showAuthMsg('✗ Auth library not loaded — check internet connection and reload.', '#ef4444');
+    return;
+  }
+  const email    = document.getElementById('authEmail').value.trim();
+  const password = document.getElementById('authPassword').value.trim();
+  if (!email || !password) { showAuthMsg('Enter email and password.', '#ef4444'); return; }
+
+  const btn = document.getElementById('btnSignUp');
+  btn.textContent = 'Creating…'; btn.disabled = true;
+  document.getElementById('authMsg').style.display = 'none';
+
+  try {
+    const { data, error } = await supabase.auth.signUp({ email, password });
+    if (error) throw error;
+    if (data.session) {
+      // Email confirmation disabled → signed in immediately, onAuthStateChange fires
     } else {
-      const { error } = await supabase.auth.signInWithPassword({ email, password });
-      if (error) throw error;
-      // onAuthStateChange fires SIGNED_IN and calls onAuthenticated()
+      showAuthMsg('✓ Account created! Check your email to confirm, then sign in.', '#10b981');
+      btn.textContent = 'Sign Up'; btn.disabled = false;
     }
   } catch(e) {
     showAuthMsg('✗ ' + e.message, '#ef4444');
-    btn.textContent = orig; btn.style.opacity = '1'; btn.disabled = false;
+    btn.textContent = 'Sign Up'; btn.disabled = false;
   }
 }
 
@@ -695,7 +682,7 @@ try {
   supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 } catch(e) {
   console.error('Supabase init failed:', e);
-  // Auth UI functions still work; submitAuth will show the error message above
+  // Auth UI functions still work; doSignIn/doSignUp will show the error message above
 }
 
 // ── BACKEND API ──
