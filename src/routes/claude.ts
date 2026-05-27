@@ -6,7 +6,8 @@ import { logUsage, checkRateLimit } from '../db/usage';
 import { validateSessionOwnership, updateSession } from '../db/sessions';
 import { appendNodeMessages } from '../db/conversations';
 import { buildDeterministicSkeleton } from '../assembler/summary';
-import { CareerGraph } from '../assembler/types';
+import { CareerGraph, InsightStrength } from '../assembler/types';
+import { validateInsight } from '../assembler/tasks/insightGeneration';
 import type { Message } from '@anthropic-ai/sdk/resources/messages';
 
 const router = Router();
@@ -138,8 +139,18 @@ router.post('/insight', async (req: Request, res: Response) => {
       user_id: userId, task: 'insight_generation', params: { session_id },
     });
 
-    const response = await callClaude(userId, session_id, 'insight_generation', pkg, 300);
-    const strength = responseText(response);
+    let response = await callClaude(userId, session_id, 'insight_generation', pkg, 400);
+    let strength: InsightStrength = JSON.parse(responseText(response));
+
+    // validate — retry once if banned words / missing reframe / no specificity
+    if (!validateInsight(strength.insight)) {
+      const retryPkg = {
+        ...pkg,
+        task_prompt: `${pkg.task_prompt}\n\nNOTE: The previous attempt contained generic language. Regenerate with more specific behavioral evidence from the graph. Banned words include: seasoned, passionate, proven, dynamic, results-driven, strategic thinker, thought leader. The identity reframe in sentence 3 must use **bold**.`,
+      };
+      response = await callClaude(userId, session_id, 'insight_generation', retryPkg, 400);
+      strength = JSON.parse(responseText(response));
+    }
 
     const insights = { ...(session.insights ?? {}), strength };
     await updateSession(session_id, userId, { insights });

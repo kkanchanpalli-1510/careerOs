@@ -2,6 +2,7 @@
 
 import { AssemblerInput, PromptPackage, CareerGraph, Node } from './types';
 import { buildCareerSummary } from './summary';
+import { buildInsightPrompt } from './tasks/insightGeneration';
 import { supabaseAdmin } from '../db/client';
 
 const CEILINGS: Record<string, number> = {
@@ -110,32 +111,23 @@ async function assembleInsightGeneration(input: AssemblerInput): Promise<PromptP
 
   const graph: CareerGraph = session.graph_data ?? { nodes: [], edges: [] };
 
+  // weight-3 as primary signal, top 6 weight-2 as support — no weight-1
   const w3 = graph.nodes.filter(n => n.weight === 3);
   const w2 = graph.nodes.filter(n => n.weight === 2).slice(0, 6);
   const selected = [...w3, ...w2];
   const selectedIds = new Set(selected.map(n => n.id));
 
-  const nodeText = selected.map(n =>
-    `[${n.type}] ${n.label} (w${n.weight})${n.year ? ` ${n.year}` : ''}: ${n.detail}`
-  ).join('\n');
+  const relevantEdges = graph.edges.filter(
+    e => selectedIds.has(e.source) && selectedIds.has(e.target)
+  );
 
-  const relevantEdges = graph.edges
-    .filter(e => selectedIds.has(e.source) && selectedIds.has(e.target))
-    .map(e => `${e.source} —${e.relation}→ ${e.target}`)
-    .join('\n');
+  const pkg = buildInsightPrompt(selected, relevantEdges);
 
-  const system = `You are a career intelligence engine. Find what makes this person rare — the non-obvious signal they can't see themselves.`;
-
-  const user_context = `Career nodes:\n${nodeText}${relevantEdges ? `\n\nRelationships:\n${relevantEdges}` : ''}`;
-
-  const task_prompt = `Write a core strength insight: 2-3 sentences. Open with "You have..." or "You are one of the few people who..." — strength first, evidence second, identity reframe third. Ground it in specific nodes. No JSON, no headers — just the insight.`;
-
-  const est = tokens(system + user_context + task_prompt);
   return {
-    system, user_context, task_prompt,
-    estimated_tokens: Math.min(est, CEILINGS.insight_generation),
+    ...pkg,
+    estimated_tokens: Math.min(pkg.estimated_tokens, CEILINGS.insight_generation),
     cache_key: `insight:${session_id}:v${session.summary_version}`,
-    metadata: { nodes_selected: selected.length, node_ids_selected: selected.map(n => n.id), truncated: est > CEILINGS.insight_generation, summary_version: session.summary_version ?? 0 },
+    metadata: { ...pkg.metadata, summary_version: session.summary_version ?? 0 },
   };
 }
 
@@ -148,7 +140,7 @@ async function assembleBranchGeneration(input: AssemblerInput): Promise<PromptPa
 
   const graph: CareerGraph = session.graph_data ?? { nodes: [], edges: [] };
   const answers: string[] = session.answers ?? [];
-  const strength: string = session.insights?.strength ?? '';
+  const strength = session.insights?.strength;
 
   // all nodes — label + type + weight only, NOT full detail
   const nodeText = graph.nodes
@@ -159,7 +151,8 @@ async function assembleBranchGeneration(input: AssemblerInput): Promise<PromptPa
 
   const user_context = [
     `Nodes: ${nodeText}`,
-    strength ? `Core strength: ${strength.split('.')[0]}.` : '',
+    strength?.identity_reframe ? `Identity: ${strength.identity_reframe}.` : '',
+    strength?.insight ? `Core strength: ${strength.insight.split('.')[0]}.` : '',
     answers[0] ? `Q1 (initiative): ${answers[0]}` : '',
     answers[1] ? `Q2 (tacit expertise): ${answers[1]}` : '',
   ].filter(Boolean).join('\n');
@@ -244,7 +237,8 @@ async function assembleFinalSynthesis(input: AssemblerInput): Promise<PromptPack
 
   const user_context = [
     `Key career nodes:\n${topNodes}`,
-    insights.strength ? `Core strength: ${insights.strength}` : '',
+    insights.strength?.identity_reframe ? `Identity: ${insights.strength.identity_reframe}.` : '',
+    insights.strength?.insight ? `Core strength: ${insights.strength.insight}` : '',
     branch ? `Chosen direction: ${branch.title} — ${branch.description}` : '',
     answers.map((a, i) => a ? `Q${i + 1}: ${a}` : '').filter(Boolean).join('\n'),
   ].filter(Boolean).join('\n\n');

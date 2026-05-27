@@ -37,8 +37,16 @@ export interface Branch {
   type: 'immediate' | 'emerging' | 'nonobvious';
 }
 
+export interface InsightStrength {
+  insight: string;
+  strength_label: string;
+  pattern_nodes: string[];
+  pattern_type: 'recurring_unrequested_decision' | 'rare_capability_combination' | 'identity_title_mismatch' | 'compounding_thread';
+  identity_reframe: string;
+}
+
 export interface SessionInsights {
-  strength?: string;
+  strength?: InsightStrength;
   branches?: Branch[];
   portrait?: Record<string, string>;
   projection?: Record<string, unknown>;

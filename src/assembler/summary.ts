@@ -26,10 +26,13 @@ export function buildDeterministicSkeleton(
       ? insights.branches[selectedBranch].title
       : null;
 
+  const identityReframe = insights?.strength?.identity_reframe ?? '';
+
   return [
-    w3.length      ? `Career context: ${w3.join(', ')} [defining].` : '',
-    w2.length      ? `Supporting: ${w2.join(', ')}.`                : '',
-    direction      ? `Direction: ${direction}.`                     : '',
+    identityReframe ? `Identity: ${identityReframe}.`              : '',
+    w3.length       ? `Career context: ${w3.join(', ')} [defining].` : '',
+    w2.length       ? `Supporting: ${w2.join(', ')}.`               : '',
+    direction       ? `Direction: ${direction}.`                    : '',
     outcomes.length ? `Key outcomes: ${outcomes.join(', ')}.`       : '',
   ].filter(Boolean).join(' ');
 }
