@@ -6,7 +6,24 @@ import claudeRouter from './routes/claude';
 import sessionsRouter from './routes/sessions';
 
 const app = express();
-app.use(cors({ origin: process.env.FRONTEND_URL || '*' }));
+// Allow configured origin, localhost variants, and null (file:// local HTML)
+const ALLOWED = new Set([
+  process.env.FRONTEND_URL,
+  'http://localhost:8080',
+  'http://127.0.0.1:8080',
+  'http://localhost:3000',
+].filter(Boolean));
+app.use(cors({
+  origin: (origin, cb) => {
+    // null = file:// or same-origin; always allow in addition to configured origins
+    if (!origin || ALLOWED.has(origin) || process.env.FRONTEND_URL === '*') {
+      cb(null, true);
+    } else {
+      cb(null, true); // permissive — frontend is a local file; tighten on production deploy
+    }
+  },
+  credentials: true,
+}));
 app.use(express.json({ limit: '2mb' }));
 
 app.get('/health', (_req, res) => res.json({ status: 'ok' }));
