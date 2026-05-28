@@ -637,9 +637,9 @@ async function doSignIn() {
   document.getElementById('authMsg').style.display = 'none';
 
   try {
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) throw error;
-    // onAuthStateChange fires SIGNED_IN and calls onAuthenticated()
+    await onAuthenticated(data.user);
   } catch(e) {
     showAuthMsg('✗ ' + e.message, '#ef4444');
     btn.textContent = 'Sign In'; btn.disabled = false;
@@ -664,8 +664,9 @@ async function doSignUp() {
     const { data, error } = await supabase.auth.signUp({ email, password });
     if (error) throw error;
     if (data.session) {
-      // Email confirmation disabled — signed in immediately, onAuthStateChange will hide overlay
+      // Email confirmation disabled — signed in immediately
       showAuthMsg('✓ Signing you in…', '#10b981');
+      await onAuthenticated(data.user);
     } else if (data.user && !data.session) {
       // Email confirmation required
       showAuthMsg('✓ Account created! Check your inbox for a confirmation email, then sign in here.', '#10b981');
