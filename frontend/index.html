@@ -589,11 +589,11 @@ svg .node-g:active{cursor:grabbing;}
 
     <!-- Two always-visible buttons -->
     <div style="display:flex;gap:10px;margin-bottom:12px;">
-      <button id="btnSignIn" onclick="doSignIn()"
+      <button id="btnSignIn"
         style="flex:1;background:#e8a640;color:#08090f;border:none;border-radius:6px;padding:11px 8px;font-family:'DM Mono',monospace;font-size:10px;letter-spacing:0.08em;text-transform:uppercase;cursor:pointer;font-weight:500;">
         Sign In
       </button>
-      <button id="btnSignUp" onclick="doSignUp()"
+      <button id="btnSignUp"
         style="flex:1;background:transparent;color:#e8a640;border:1.5px solid #e8a640;border-radius:6px;padding:11px 8px;font-family:'DM Mono',monospace;font-size:10px;letter-spacing:0.08em;text-transform:uppercase;cursor:pointer;font-weight:500;">
         Sign Up
       </button>
@@ -2148,6 +2148,11 @@ async function onAuthenticated(user) {
 }
 
 function sleep(ms){return new Promise(r=>setTimeout(r,ms));}
+
+// Wire auth buttons via addEventListener so they work even when onclick
+// attribute global-scope lookup is blocked by browser extensions/sandboxes
+document.getElementById('btnSignIn').addEventListener('click', doSignIn);
+document.getElementById('btnSignUp').addEventListener('click', doSignUp);
 
 </script>
 </body>
