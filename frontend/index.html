@@ -600,7 +600,7 @@ svg .node-g:active{cursor:grabbing;}
     </div>
 
     <!-- Message -->
-    <div id="authMsg" style="display:none;font-family:'DM Mono',monospace;font-size:10px;text-align:center;line-height:1.6;padding:8px 0;"></div>
+    <div id="authMsg" style="display:none;font-family:'DM Mono',monospace;font-size:12px;text-align:center;line-height:1.6;padding:10px 14px;border-radius:6px;margin-top:4px;"></div>
 
   </div>
 </div>
@@ -617,12 +617,15 @@ function showAuthMsg(html, color) {
   const el = document.getElementById('authMsg');
   el.innerHTML = html;
   el.style.color = color;
+  el.style.background = color === '#ef4444' ? 'rgba(239,68,68,0.1)' : color === '#10b981' ? 'rgba(16,185,129,0.1)' : 'rgba(232,166,64,0.1)';
+  el.style.border = `1px solid ${color}`;
   el.style.display = 'block';
 }
 
 async function doSignIn() {
+  console.log('[career-os] doSignIn called, supabase:', typeof supabase);
   if (typeof supabase === 'undefined') {
-    showAuthMsg('✗ Auth library not loaded — check internet connection and reload.', '#ef4444');
+    showAuthMsg('✗ Auth library not loaded — reload the page or check your internet connection.', '#ef4444');
     return;
   }
   const email    = document.getElementById('authEmail').value.trim();
@@ -644,8 +647,9 @@ async function doSignIn() {
 }
 
 async function doSignUp() {
+  console.log('[career-os] doSignUp called, supabase:', typeof supabase);
   if (typeof supabase === 'undefined') {
-    showAuthMsg('✗ Auth library not loaded — check internet connection and reload.', '#ef4444');
+    showAuthMsg('✗ Auth library not loaded — reload the page or check your internet connection.', '#ef4444');
     return;
   }
   const email    = document.getElementById('authEmail').value.trim();
@@ -686,10 +690,24 @@ function signOut() {
 let supabase;
 try {
   supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  console.log('[career-os] Supabase client ready');
 } catch(e) {
-  console.error('Supabase init failed:', e);
-  // Auth UI functions still work; doSignIn/doSignUp will show the error message above
+  console.error('[career-os] Supabase init failed:', e);
+  // Show prominent error on the auth overlay itself
+  const msgEl = document.getElementById('authMsg');
+  if (msgEl) {
+    msgEl.innerHTML = '✗ Auth library failed to load — check your internet connection and reload.';
+    msgEl.style.color = '#ef4444';
+    msgEl.style.background = 'rgba(239,68,68,0.1)';
+    msgEl.style.border = '1px solid #ef4444';
+    msgEl.style.display = 'block';
+  }
 }
+
+// Catch any unhandled JS errors and log them visibly
+window.onerror = (msg, src, line) => {
+  console.error('[career-os] JS error:', msg, src, line);
+};
 
 // ── BACKEND API ──
 async function callBackend(path, body = {}) {
