@@ -1,11 +1,9 @@
 import { Router, Request, Response } from 'express';
-import { requireAuth, AuthedRequest } from '../middleware/auth';
+import { requireAuth, uid } from '../middleware/auth';
 import { supabaseAdmin } from '../db/client';
 
 const router = Router();
 router.use(requireAuth);
-
-function uid(req: Request) { return (req as AuthedRequest).user.id; }
 
 // ─── POST /sessions — create new session ─────────────────────
 

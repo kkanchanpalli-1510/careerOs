@@ -1,10 +1,11 @@
 import { supabaseAdmin } from './client';
+import { TaskType } from '../assembler/types';
 
 const INPUT_COST  = 0.000003;   // $3/1M tokens (Sonnet 4)
 const OUTPUT_COST = 0.000015;   // $15/1M tokens
 
 export async function logUsage(p: {
-  userId: string; sessionId?: string; taskType: string;
+  userId: string; sessionId?: string; taskType: TaskType;
   promptTokens?: number; completionTokens?: number; estimatedTokens?: number;
 }) {
   const costCents = p.promptTokens !== undefined && p.completionTokens !== undefined
@@ -23,10 +24,11 @@ export async function logUsage(p: {
   });
 }
 
-export async function checkRateLimit(userId: string, taskType: string): Promise<boolean> {
-  const limits: Record<string, number> = {
+export async function checkRateLimit(userId: string, taskType: TaskType): Promise<boolean> {
+  const limits: Partial<Record<TaskType, number>> = {
     graph_extraction: 3, insight_generation: 5, branch_generation: 10,
     gap_enrichment: 50, final_synthesis: 5, node_chat: 100, resume_projection: 20,
+    // career_summary_generation is an internal background task — no per-user limit
   };
   const limit = limits[taskType];
   if (!limit) return true;

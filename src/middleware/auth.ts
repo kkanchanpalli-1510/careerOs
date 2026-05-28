@@ -17,3 +17,7 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
   (req as AuthedRequest).user = { id: data.user.id, email: data.user.email ?? '' };
   next();
 }
+
+export function uid(req: Request): string {
+  return (req as AuthedRequest).user.id;
+}

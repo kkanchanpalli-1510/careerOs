@@ -1,41 +1,34 @@
 import { Router, Request, Response } from 'express';
-import { requireAuth, AuthedRequest } from '../middleware/auth';
+import { requireAuth, uid } from '../middleware/auth';
 import { assembleContext } from '../assembler';
 import { anthropic, MODEL } from '../lib/anthropic';
 import { logUsage, checkRateLimit } from '../db/usage';
 import { validateSessionOwnership, updateSession } from '../db/sessions';
 import { appendNodeMessages } from '../db/conversations';
 import { buildDeterministicSkeleton } from '../assembler/summary';
-import { CareerGraph, InsightStrength } from '../assembler/types';
+import { CareerGraph, InsightStrength, TaskType } from '../assembler/types';
 import { validateInsight } from '../assembler/tasks/insightGeneration';
 import type { Message } from '@anthropic-ai/sdk/resources/messages';
 
 const router = Router();
 router.use(requireAuth);
 
-function uid(req: Request) { return (req as AuthedRequest).user.id; }
-
 function responseText(response: Message) {
   return (response.content[0] as { type: string; text: string }).text;
 }
 
-/** Strip optional markdown code fences (```json ... ``` or ``` ... ```) then parse. */
+/** Strip optional markdown code fences then parse. Claude occasionally wraps JSON in ```json...```. */
 function parseJsonResponse<T = unknown>(response: Message): T {
-  let text = responseText(response).trim();
-  // Remove opening fence: ```json, ```JSON, ``` etc.
-  text = text.replace(/^```[a-zA-Z]*\n?/, '');
-  // Remove closing fence
-  text = text.replace(/\n?```\s*$/, '').trim();
-  return JSON.parse(text) as T;
+  const raw = responseText(response);
+  const fenced = raw.match(/^```[a-zA-Z]*\n?([\s\S]*?)\n?```\s*$/);
+  return JSON.parse(fenced ? fenced[1] : raw.trim()) as T;
 }
 
 async function callClaude(
-  userId: string, sessionId: string, taskType: string,
+  userId: string, sessionId: string, taskType: TaskType,
   pkg: { system: string; user_context: string; task_prompt: string; estimated_tokens: number },
   maxTokens: number
 ): Promise<Message> {
-  await logUsage({ userId, sessionId, taskType, estimatedTokens: pkg.estimated_tokens });
-
   const response = await anthropic.messages.create({
     model: MODEL,
     max_tokens: maxTokens,
@@ -114,7 +107,6 @@ router.post('/extract', async (req: Request, res: Response) => {
     const response = await callClaude(userId, session_id, 'graph_extraction', pkg, 3000);
     const graph: CareerGraph = parseJsonResponse<CareerGraph>(response);
 
-    // raw resume text discarded here — never stored
     const skeleton = buildDeterministicSkeleton(graph, null, null);
     await updateSession(session_id, userId, {
       graph_data: graph,
@@ -220,6 +212,10 @@ router.post('/enrich', async (req: Request, res: Response) => {
   const session = await validateSessionOwnership(session_id, userId);
   if (!session) { res.status(403).json({ error: 'Forbidden' }); return; }
 
+  if (!session.graph_data) {
+    res.status(409).json({ error: 'Run /extract before /enrich' }); return;
+  }
+
   try {
     const pkg = await assembleContext({
       user_id: userId, task: 'gap_enrichment',
@@ -229,7 +225,7 @@ router.post('/enrich', async (req: Request, res: Response) => {
     const response = await callClaude(userId, session_id, 'gap_enrichment', pkg, 400);
     const enriched: { nodes: CareerGraph['nodes']; edges: CareerGraph['edges'] } = parseJsonResponse<{ nodes: CareerGraph['nodes']; edges: CareerGraph['edges'] }>(response);
 
-    const graph: CareerGraph = session.graph_data ?? { nodes: [], edges: [] };
+    const graph: CareerGraph = session.graph_data;
     const updatedGraph: CareerGraph = {
       nodes: [...graph.nodes, ...enriched.nodes],
       edges: [...graph.edges, ...enriched.edges],
@@ -282,15 +278,12 @@ router.post('/synthesis', async (req: Request, res: Response) => {
     const insights = { ...(session.insights ?? {}), portrait };
     await updateSession(session_id, userId, { insights, selected_branch: chosen_branch_index });
 
-    // behavioral pattern generation — async, not in critical path
+    // behavioral pattern generation — fires after response, not in critical path
     setImmediate(() => {
       assembleContext({ user_id: userId, task: 'career_summary_generation', params: { session_id } })
-        .then(summaryPkg => anthropic.messages.create({
-          model: MODEL, max_tokens: 150, system: summaryPkg.system,
-          messages: [{ role: 'user', content: `${summaryPkg.user_context}\n\n${summaryPkg.task_prompt}`.trim() }],
-        }))
+        .then(summaryPkg => callClaude(userId, session_id, 'career_summary_generation', summaryPkg, 150))
         .then(async r => {
-          const pattern = (r.content[0] as { type: string; text: string }).text;
+          const pattern = responseText(r);
           const graph: CareerGraph = session.graph_data ?? { nodes: [], edges: [] };
           const skeleton = buildDeterministicSkeleton(graph, insights, chosen_branch_index);
           await updateSession(session_id, userId, {
@@ -298,7 +291,7 @@ router.post('/synthesis', async (req: Request, res: Response) => {
             career_summary: `${skeleton}\n${pattern}`,
           });
         })
-        .catch(() => { /* non-fatal */ });
+        .catch(err => { console.error('[career_summary_generation]', err instanceof Error ? err.message : err); });
     });
 
     res.json({ portrait, metadata: pkg.metadata });
