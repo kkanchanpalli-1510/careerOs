@@ -2,6 +2,7 @@ import dotenv from 'dotenv';
 dotenv.config();
 import express from 'express';
 import cors from 'cors';
+import path from 'path';
 import claudeRouter from './routes/claude';
 import sessionsRouter from './routes/sessions';
 
@@ -25,6 +26,8 @@ app.use(cors({
   credentials: true,
 }));
 app.use(express.json({ limit: '2mb' }));
+
+app.use(express.static(path.join(__dirname, '../frontend')));
 
 app.get('/health', (_req, res) => res.json({ status: 'ok' }));
 app.use('/api/v1/claude', claudeRouter);
