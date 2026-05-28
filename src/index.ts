@@ -27,9 +27,10 @@ app.use(cors({
 }));
 app.use(express.json({ limit: '2mb' }));
 
-app.use(express.static(path.join(__dirname, '../frontend')));
+// serve static frontend — use process.cwd() so path resolves correctly on Railway
+app.use(express.static(path.resolve(process.cwd(), 'frontend')));
 
-app.get('/health', (_req, res) => res.json({ status: 'ok' }));
+app.get('/health', (_req, res) => res.json({ status: 'ok', v: 2 }));
 app.use('/api/v1/claude', claudeRouter);
 app.use('/api/v1/sessions', sessionsRouter);
 
