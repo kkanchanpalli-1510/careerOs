@@ -660,9 +660,15 @@ async function doSignUp() {
     const { data, error } = await supabase.auth.signUp({ email, password });
     if (error) throw error;
     if (data.session) {
-      // Email confirmation disabled → signed in immediately, onAuthStateChange fires
+      // Email confirmation disabled — signed in immediately, onAuthStateChange will hide overlay
+      showAuthMsg('✓ Signing you in…', '#10b981');
+    } else if (data.user && !data.session) {
+      // Email confirmation required
+      showAuthMsg('✓ Account created! Check your inbox for a confirmation email, then sign in here.', '#10b981');
+      btn.textContent = 'Sign Up'; btn.disabled = false;
     } else {
-      showAuthMsg('✓ Account created! Check your email to confirm, then sign in.', '#10b981');
+      // Unexpected: no user returned (e.g. duplicate unconfirmed account)
+      showAuthMsg('✓ If this email is new, check your inbox to confirm. Otherwise sign in.', '#e8a640');
       btn.textContent = 'Sign Up'; btn.disabled = false;
     }
   } catch(e) {
