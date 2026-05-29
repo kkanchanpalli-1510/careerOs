@@ -177,12 +177,53 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 .ntip-detail{font-size:9px;color:var(--text2);line-height:1.5;}
 
 /* ── RIGHT: CONVERSATION PANEL ── */
+.main{transition:grid-template-columns 0.3s cubic-bezier(0.16,1,0.3,1);}
+.main.conv-minimized{grid-template-columns:1fr 36px;}
 .conv-panel{display:flex;flex-direction:column;overflow:hidden;background:var(--surface);}
 .conv-panel-hdr{padding:12px 20px;border-bottom:1px solid var(--border);flex-shrink:0;
   display:flex;align-items:center;justify-content:space-between;}
 .conv-scroll{flex:1;overflow-y:auto;padding:20px;}
 .conv-scroll::-webkit-scrollbar{width:3px;}
 .conv-scroll::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px;}
+
+/* ── CAREER CHAT BAR (persistent footer) ── */
+.career-chat-bar{border-top:1px solid var(--border);padding:10px 16px 12px;
+  background:var(--surface);flex-shrink:0;flex-direction:column;gap:7px;}
+.career-chat-label{font-family:'DM Mono',monospace;font-size:8px;color:var(--text3);
+  letter-spacing:0.12em;text-transform:uppercase;display:flex;align-items:center;gap:6px;}
+.career-chat-label::before{content:'◆';color:var(--accent);font-size:7px;}
+.career-chat-row{display:flex;gap:8px;align-items:flex-end;}
+.career-chat-inp{flex:1;background:var(--bg);border:1px solid var(--border2);
+  color:var(--text);font-family:'DM Sans',sans-serif;font-size:12px;line-height:1.55;
+  padding:8px 12px;border-radius:6px;outline:none;resize:none;
+  height:36px;max-height:110px;transition:border-color 0.2s,height 0.1s;overflow-y:hidden;}
+.career-chat-inp:focus{border-color:var(--accent);}
+.career-chat-inp::placeholder{color:var(--text3);}
+.career-chat-send{background:var(--accent);color:var(--bg);border:none;
+  font-family:'DM Mono',monospace;font-size:12px;font-weight:500;
+  width:36px;height:36px;border-radius:6px;cursor:pointer;
+  transition:opacity 0.15s;flex-shrink:0;display:flex;align-items:center;justify-content:center;}
+.career-chat-send:hover{opacity:0.85;}
+.career-chat-send:disabled{opacity:0.35;cursor:not-allowed;}
+
+/* minimize button */
+.conv-minimize-btn{background:none;border:none;color:var(--text2);cursor:pointer;
+  font-family:'DM Mono',monospace;font-size:14px;line-height:1;
+  padding:2px 5px;border-radius:3px;transition:all 0.15s;flex-shrink:0;}
+.conv-minimize-btn:hover{color:var(--text);background:rgba(255,255,255,0.05);}
+
+/* minimized state */
+.conv-minimized .conv-scroll{display:none;}
+.conv-minimized .career-chat-bar{display:none!important;}
+.conv-minimized .conv-panel-hdr{
+  flex-direction:column;align-items:center;justify-content:flex-start;
+  padding:10px 0;gap:10px;border-bottom:none;overflow:hidden;}
+.conv-minimized .conv-panel-hdr .panel-label,
+.conv-minimized #stepLabel{display:none;}
+.conv-minimized .conv-panel-hdr::after{
+  content:'SESSION';font-family:'DM Mono',monospace;font-size:7px;
+  letter-spacing:0.16em;color:var(--text3);text-transform:uppercase;
+  writing-mode:vertical-rl;transform:rotate(180deg);opacity:0.5;}
 
 /* start screen */
 .start-screen{display:flex;flex-direction:column;align-items:center;justify-content:center;
@@ -381,10 +422,78 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 .node-chat-send:hover{opacity:0.85;}
 .node-chat-send:disabled{opacity:0.4;}
 
+/* ── GRAPH SEARCH ── */
+.graph-search-bar{padding:7px 18px;border-bottom:1px solid var(--border);
+  display:flex;align-items:center;gap:8px;flex-shrink:0;background:var(--surface);}
+.graph-search-icon{font-family:'DM Mono',monospace;font-size:12px;color:var(--text3);flex-shrink:0;line-height:1;}
+.graph-search-inp{flex:1;background:transparent;border:none;color:var(--text);
+  font-family:'DM Mono',monospace;font-size:10px;padding:2px 0;outline:none;letter-spacing:0.02em;min-width:0;}
+.graph-search-inp::placeholder{color:var(--text3);}
+.graph-search-count{font-family:'DM Mono',monospace;font-size:8px;color:var(--text3);
+  white-space:nowrap;min-width:56px;text-align:right;letter-spacing:0.06em;transition:color 0.2s;}
+.graph-search-clear{background:none;border:none;color:var(--text3);cursor:pointer;
+  font-size:12px;padding:0 2px;line-height:1;transition:color 0.15s;flex-shrink:0;}
+.graph-search-clear:hover{color:var(--text2);}
+
 /* drag cursor */
 .dragging{cursor:grabbing!important;}
 svg .node-g{cursor:grab;}
 svg .node-g:active{cursor:grabbing;}
+
+/* ── NEXT-STEP ENGAGEMENT ── */
+.ns-header{font-family:'Cormorant Garamond',serif;font-size:20px;font-weight:300;font-style:italic;
+  line-height:1.4;color:var(--text);margin-bottom:14px;}
+.ns-subheader{font-family:'DM Mono',monospace;font-size:8px;color:var(--text2);letter-spacing:0.12em;
+  text-transform:uppercase;margin-bottom:14px;display:flex;align-items:center;gap:8px;}
+.ns-subheader::before{content:'';width:16px;height:1px;background:var(--accent);}
+.ns-pills{display:flex;flex-direction:column;gap:8px;margin-bottom:4px;}
+.ns-pill{display:flex;align-items:flex-start;gap:14px;background:var(--bg);border:1px solid var(--border2);
+  border-radius:8px;padding:14px 16px;cursor:pointer;transition:all 0.2s;text-align:left;width:100%;}
+.ns-pill:hover{border-color:var(--accent);background:var(--accent-dim);}
+.ns-pill:disabled{opacity:0.35;cursor:not-allowed;pointer-events:none;}
+.ns-pill-icon{font-size:15px;flex-shrink:0;margin-top:2px;width:18px;text-align:center;color:var(--accent);}
+.ns-pill-title{font-family:'DM Mono',monospace;font-size:10px;letter-spacing:0.05em;
+  color:var(--text);margin-bottom:3px;}
+.ns-pill-sub{font-size:11px;color:var(--text2);line-height:1.55;}
+
+/* resume projection result */
+.proj-card{background:var(--bg);border:1px solid rgba(232,166,64,0.2);border-radius:8px;padding:20px;margin:12px 0;}
+.proj-section{margin-bottom:16px;}
+.proj-section:last-child{margin-bottom:0;}
+.proj-label{font-family:'DM Mono',monospace;font-size:8px;color:var(--accent);
+  letter-spacing:0.12em;text-transform:uppercase;margin-bottom:8px;}
+.proj-statement{font-family:'Cormorant Garamond',serif;font-size:15px;font-weight:300;
+  font-style:italic;line-height:1.6;color:var(--text);}
+.proj-bullet{display:flex;gap:8px;margin-bottom:7px;font-size:12px;color:var(--text);line-height:1.65;}
+.proj-bullet::before{content:'→';color:var(--green);flex-shrink:0;font-family:'DM Mono',monospace;}
+.proj-gap-item{padding:10px 12px;border-radius:6px;border:1px solid var(--border2);
+  background:var(--surface2);margin-bottom:8px;}
+.proj-gap-item:last-child{margin-bottom:0;}
+.proj-gap-name{font-family:'DM Mono',monospace;font-size:9px;color:var(--text3);
+  letter-spacing:0.08em;text-transform:uppercase;margin-bottom:4px;}
+.proj-gap-desc{font-size:11px;color:var(--text2);line-height:1.55;}
+.proj-gap-q{font-size:10px;color:var(--accent);margin-top:5px;font-style:italic;}
+.proj-strength{display:flex;gap:8px;margin-bottom:6px;font-size:12px;color:var(--green);line-height:1.6;}
+.proj-strength::before{content:'✓';flex-shrink:0;font-family:'DM Mono',monospace;}
+.proj-bridge{font-size:12px;color:var(--text2);line-height:1.7;margin-top:12px;
+  padding-top:12px;border-top:1px solid var(--border);font-style:italic;}
+
+/* inline action inputs */
+.inline-input-wrap{margin:12px 0 4px;}
+.inline-textarea{width:100%;background:var(--surface2);border:1px solid var(--border2);
+  color:var(--text);font-family:'DM Sans',sans-serif;font-size:12px;line-height:1.6;
+  padding:10px 14px;border-radius:6px 6px 0 0;outline:none;resize:none;
+  transition:border-color 0.2s;}
+.inline-textarea:focus{border-color:var(--accent);}
+.inline-textarea::placeholder{color:var(--text3);}
+.inline-input-footer{display:flex;justify-content:flex-end;gap:8px;
+  border:1px solid var(--border2);border-top:none;border-radius:0 0 6px 6px;
+  padding:8px 12px;background:var(--surface2);}
+.skill-chips{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0 14px;}
+.skill-chip{font-family:'DM Mono',monospace;font-size:9px;letter-spacing:0.05em;
+  background:var(--surface2);border:1px solid var(--node-skill);color:var(--node-skill);
+  padding:4px 10px;border-radius:20px;cursor:pointer;transition:all 0.15s;}
+.skill-chip:hover{background:rgba(16,185,129,0.12);}
 </style>
 </head>
 <body>
@@ -428,6 +537,18 @@ svg .node-g:active{cursor:grabbing;}
           <div class="stage-pill" id="pill3">Reveal</div>
         </div>
       </div>
+    </div>
+    <!-- ── GRAPH SEARCH BAR ── -->
+    <div class="graph-search-bar">
+      <span class="graph-search-icon">⌕</span>
+      <input class="graph-search-inp" id="graphSearchInp"
+        placeholder="Search nodes — skill, role, keyword…"
+        oninput="onGraphSearch(this.value)"
+        onkeydown="if(event.key==='Escape')clearGraphSearch();"
+        autocomplete="off" spellcheck="false" />
+      <span class="graph-search-count" id="graphSearchCount"></span>
+      <button class="graph-search-clear" id="graphSearchClear"
+        onclick="clearGraphSearch()" style="display:none;" title="Clear search">✕</button>
     </div>
     <div class="graph-area">
       <div id="graphSvgWrap">
@@ -529,7 +650,10 @@ svg .node-g:active{cursor:grabbing;}
   <div class="conv-panel">
     <div class="conv-panel-hdr">
       <div class="panel-label">Career Intelligence Session</div>
-      <div style="font-family:'DM Mono',monospace;font-size:8px;color:var(--text3);letter-spacing:0.08em;" id="stepLabel">Step 0 of 5</div>
+      <div style="display:flex;align-items:center;gap:10px;">
+        <div style="font-family:'DM Mono',monospace;font-size:8px;color:var(--text3);letter-spacing:0.08em;" id="stepLabel">Step 0 of 5</div>
+        <button class="conv-minimize-btn" id="convMinimizeBtn" onclick="toggleConvPanel()" title="Minimize panel">›</button>
+      </div>
     </div>
     <div class="conv-scroll" id="convScroll">
 
@@ -558,6 +682,19 @@ svg .node-g:active{cursor:grabbing;}
       </div>
 
     </div>
+
+    <!-- ── CAREER CHAT BAR ── persistent footer, shown once portrait is ready -->
+    <div class="career-chat-bar" id="careerChatBar" style="display:none;">
+      <div class="career-chat-label">How can I help your career?</div>
+      <div class="career-chat-row">
+        <textarea class="career-chat-inp" id="careerChatInp"
+          placeholder="Ask me anything — next move, skill gaps, how to position yourself…"
+          onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendCareerChat();}"
+          oninput="autoResizeCareerChat(this)"></textarea>
+        <button class="career-chat-send" id="careerChatSend" onclick="sendCareerChat()" title="Send">→</button>
+      </div>
+    </div>
+
   </div>
 </div>
 
@@ -611,6 +748,11 @@ const BACKEND_URL = 'https://ideal-grace-production-3e9f.up.railway.app';
 const SUPABASE_URL = 'https://rltvhwzyezkqidgcnbrw.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJsdHZod3p5ZXprcWlkZ2NuYnJ3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk4MzA5NDUsImV4cCI6MjA5NTQwNjk0NX0.bt322QHm774ekXn7WVATJb9RUCFFbX5mQhBo1k1rKLQ';
 
+// Cached auth token — set by onAuthStateChange, avoids getSession() hanging on background refresh lock
+let _authToken = null;
+// Saved start-screen markup — captured at DOMContentLoaded so restoreSession can put it back for blank sessions
+let _startScreenTemplate = null;
+
 // ── AUTH UI ──
 
 function showAuthMsg(html, color) {
@@ -623,8 +765,8 @@ function showAuthMsg(html, color) {
 }
 
 async function doSignIn() {
-  console.log('[career-os] doSignIn called, supabase:', typeof supabase);
-  if (typeof supabase === 'undefined') {
+  console.log('[career-os] doSignIn called, supabaseClient:', typeof supabaseClient);
+  if (typeof supabaseClient === 'undefined') {
     showAuthMsg('✗ Auth library not loaded — reload the page or check your internet connection.', '#ef4444');
     return;
   }
@@ -637,7 +779,7 @@ async function doSignIn() {
   document.getElementById('authMsg').style.display = 'none';
 
   try {
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
     if (error) throw error;
     await onAuthenticated(data.user);
   } catch(e) {
@@ -647,8 +789,8 @@ async function doSignIn() {
 }
 
 async function doSignUp() {
-  console.log('[career-os] doSignUp called, supabase:', typeof supabase);
-  if (typeof supabase === 'undefined') {
+  console.log('[career-os] doSignUp called, supabaseClient:', typeof supabaseClient);
+  if (typeof supabaseClient === 'undefined') {
     showAuthMsg('✗ Auth library not loaded — reload the page or check your internet connection.', '#ef4444');
     return;
   }
@@ -661,7 +803,7 @@ async function doSignUp() {
   document.getElementById('authMsg').style.display = 'none';
 
   try {
-    const { data, error } = await supabase.auth.signUp({ email, password });
+    const { data, error } = await supabaseClient.auth.signUp({ email, password });
     if (error) throw error;
     if (data.session) {
       // Email confirmation disabled — signed in immediately
@@ -683,14 +825,15 @@ async function doSignUp() {
 }
 
 function signOut() {
-  if (typeof supabase !== 'undefined') supabase.auth.signOut().then(() => location.reload());
+  _authToken = null;
+  if (typeof supabaseClient !== 'undefined') supabaseClient.auth.signOut().then(() => location.reload());
   else location.reload();
 }
 
 // ── SUPABASE CLIENT — init after auth UI functions ──
-let supabase;
+let supabaseClient;
 try {
-  supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
   console.log('[career-os] Supabase client ready');
 } catch(e) {
   console.error('[career-os] Supabase init failed:', e);
@@ -711,14 +854,28 @@ window.onerror = (msg, src, line) => {
 };
 
 // ── BACKEND API ──
+function _getToken() {
+  // Use cached token first (avoids getSession() hanging on Supabase's background refresh lock)
+  if (_authToken) return _authToken;
+  // Fallback: try to read directly from localStorage without async lock
+  try {
+    const key = `sb-${SUPABASE_URL.split('//')[1].split('.')[0]}-auth-token`;
+    const raw = localStorage.getItem(key);
+    if (raw) { const s = JSON.parse(raw); return s?.access_token || null; }
+  } catch(e) {}
+  return null;
+}
+
 async function callBackend(path, body = {}) {
-  const { data: { session } } = await supabase.auth.getSession();
-  if (!session?.access_token) throw new Error('Not authenticated');
+  console.log('[career-os] callBackend:', path);
+  const token = _getToken();
+  console.log('[career-os] token:', token ? 'valid' : 'NULL — not authenticated');
+  if (!token) throw new Error('Not authenticated — please sign out and sign in again');
   const res = await fetch(`${BACKEND_URL}/api/v1/${path}`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'Authorization': `Bearer ${session.access_token}`
+      'Authorization': `Bearer ${token}`
     },
     body: JSON.stringify(body)
   });
@@ -730,10 +887,10 @@ async function callBackend(path, body = {}) {
 }
 
 async function fetchBackend(path) {
-  const { data: { session } } = await supabase.auth.getSession();
-  if (!session?.access_token) throw new Error('Not authenticated');
+  const token = _getToken();
+  if (!token) throw new Error('Not authenticated');
   const res = await fetch(`${BACKEND_URL}/api/v1/${path}`, {
-    headers: { 'Authorization': `Bearer ${session.access_token}` }
+    headers: { 'Authorization': `Bearer ${token}` }
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
@@ -815,21 +972,24 @@ const STORAGE_KEY = 'career_os_sessions_v1';
 // What gets persisted (excludes DOM elements: svgNodeEls, svgEdgeEls)
 const PERSIST_FIELDS = [
   'session_id','graphData','answers','enrichCount','step','nodePositions',
-  'nodeChatHistory','convHTML','scrollTop','cardStates','branches','selectedBranch'
+  'nodeChatHistory','convHTML','scrollTop','cardStates','branches','selectedBranch',
+  'careerChatHistory'
 ];
 
 const sessions = {
-  A: { session_id:null, graphData:null, svgNodeEls:{}, svgEdgeEls:[], answers:[], enrichCount:0, step:0, nodePositions:{}, nodeChatHistory:{}, branches:null, selectedBranch:null },
-  B: { session_id:null, graphData:null, svgNodeEls:{}, svgEdgeEls:[], answers:[], enrichCount:0, step:0, nodePositions:{}, nodeChatHistory:{}, branches:null, selectedBranch:null }
+  A: { session_id:null, graphData:null, svgNodeEls:{}, svgEdgeEls:[], answers:[], enrichCount:0, step:0, nodePositions:{}, nodeChatHistory:{}, branches:null, selectedBranch:null, careerChatHistory:[] },
+  B: { session_id:null, graphData:null, svgNodeEls:{}, svgEdgeEls:[], answers:[], enrichCount:0, step:0, nodePositions:{}, nodeChatHistory:{}, branches:null, selectedBranch:null, careerChatHistory:[] }
 };
 let currentSession = 'A';
 
 // ── PERSISTENCE ──
 function saveSessions() {
   try {
-    // Snapshot current DOM state before saving
+    // Snapshot current DOM state before saving — only when a session is active.
+    // If step is 0, the scroll contains the start screen; capturing it would
+    // cause the start screen to be "restored" on the next sign-in.
     const scroll = document.getElementById('convScroll');
-    if (scroll) {
+    if (scroll && S().step >= 1) {
       S().convHTML = scroll.innerHTML;
       S().scrollTop = scroll.scrollTop;
     }
@@ -884,22 +1044,22 @@ function loadSessions() {
 
 function clearSessions() {
   if (!confirm('Clear all saved sessions? This cannot be undone.')) return;
-  // Delete backend sessions for both slots (fire-and-forget)
-  supabase.auth.getSession().then(({ data: { session } }) => {
-    if (!session?.access_token) return;
+  // Delete backend sessions for both slots (fire-and-forget) — use cached token, no getSession() needed
+  const token = _getToken();
+  if (token) {
     ['A','B'].forEach(slot => {
       const sid = sessions[slot].session_id;
       if (!sid) return;
       fetch(`${BACKEND_URL}/api/v1/sessions/${sid}`, {
         method: 'DELETE',
-        headers: { 'Authorization': `Bearer ${session.access_token}` }
+        headers: { 'Authorization': `Bearer ${token}` }
       }).catch(() => {});
     });
-  });
+  }
 
   localStorage.removeItem(STORAGE_KEY);
   ['A','B'].forEach(sid => {
-    sessions[sid] = { session_id:null, graphData:null, svgNodeEls:{}, svgEdgeEls:[], answers:[], enrichCount:0, step:0, nodePositions:{}, nodeChatHistory:{}, branches:null, selectedBranch:null };
+    sessions[sid] = { session_id:null, graphData:null, svgNodeEls:{}, svgEdgeEls:[], answers:[], enrichCount:0, step:0, nodePositions:{}, nodeChatHistory:{}, branches:null, selectedBranch:null, careerChatHistory:[] };
   });
   currentSession = 'A';
   location.reload();
@@ -946,8 +1106,33 @@ function switchSession(id) {
 // Restore current session's UI state
 function restoreSession() {
   const scroll = document.getElementById('convScroll');
-  scroll.innerHTML = S().convHTML || '';
-  setTimeout(() => scroll.scrollTop = S().scrollTop || 0, 50);
+
+  if (S().convHTML) {
+    // Full conversation saved — restore it (start screen is inside it, hidden via style)
+    scroll.innerHTML = S().convHTML;
+    setTimeout(() => scroll.scrollTop = S().scrollTop || 0, 50);
+    // Guard: if the saved HTML has a VISIBLE start screen but the session is underway,
+    // the convHTML is stale/corrupt (captured before the step-guard fix). Override it.
+    if (S().step >= 1) {
+      const ss = document.getElementById('startScreen');
+      if (ss && ss.style.display !== 'none') {
+        S().convHTML = null; // clear the bad saved state
+        scroll.innerHTML = buildRestoredConvHTML();
+      }
+    }
+  } else if (S().step >= 1) {
+    // Returning user on new browser / cleared localStorage — show welcome-back panel
+    scroll.innerHTML = buildRestoredConvHTML();
+  } else {
+    // Brand-new session — show the start screen (or put it back if it was cleared)
+    if (_startScreenTemplate) scroll.innerHTML = _startScreenTemplate;
+    // Re-wire onclick since it was set via the template string
+    const sb = document.getElementById('startBtn');
+    if (sb) sb.onclick = startSession;
+    // Nothing more to restore for an empty session
+    setStep(0);
+    return;
+  }
 
   // Restore card states
   const cs = S().cardStates;
@@ -1000,6 +1185,9 @@ function restoreSession() {
     btnB.style.background = 'var(--accent)'; btnB.style.color = 'var(--bg)';
     btnA.style.background = 'var(--surface2)'; btnA.style.color = 'var(--text2)';
   }
+
+  // Show chat bar for any active session
+  if (S().step >= 1) showCareerChatBar();
 }
 
 // Re-render graph at saved positions (no physics re-run)
@@ -1116,10 +1304,12 @@ function addThinking(label='Processing') {
 // ── START ──
 async function startSession() {
   const resumeText = (document.getElementById('resumeInput')?.value || '').trim();
-  if (!resumeText || resumeText.length < 100) { alert('Please paste your resume first.'); return; }
+  console.log('[career-os] startSession, resume length:', resumeText.length);
+  if (!resumeText || resumeText.length < 100) { alert('Please paste your resume first (minimum 100 characters, currently ' + resumeText.length + ').'); return; }
   document.getElementById('startBtn').disabled = true;
   document.getElementById('startScreen').style.display = 'none';
   setStep(1);
+  showCareerChatBar();
   setProgress(10);
 
   // Ensure backend session exists for this slot
@@ -1372,6 +1562,9 @@ async function showFinalReveal() {
     setProgress(100);
     saveSessions();
 
+    await sleep(500);
+    showNextSteps();
+
   } catch(e) {
     t.remove();
     addMsg('system', `Summary generation error: ${e.message}`);
@@ -1460,8 +1653,419 @@ window.submitAnswer = async function(idx) {
   }
 };
 
+// ── NEXT-STEP ENGAGEMENT ──
+// Called after the career portrait is shown — replaces the passive end state
+// with actionable prompts so users know what to do next.
+
+function buildNextStepsPillsHTML() {
+  return `<div class="ns-header">Now that you have your Career Portrait,<br>what do you want to do next?</div>
+  <div id="nsPillsContainer" class="ns-pills">
+    <button class="ns-pill" onclick="handleNextStep('resume')">
+      <span class="ns-pill-icon">◧</span>
+      <div>
+        <div class="ns-pill-title">Prep a resume for a specific role</div>
+        <div class="ns-pill-sub">Project your graph onto a job description — tailored bullets, positioning statement, and gap analysis</div>
+      </div>
+    </button>
+    <button class="ns-pill" onclick="handleNextStep('skill')">
+      <span class="ns-pill-icon">⚡</span>
+      <div>
+        <div class="ns-pill-title">How to strengthen a skill</div>
+        <div class="ns-pill-sub">Get a concrete development plan grounded in your career graph and current trajectory</div>
+      </div>
+    </button>
+    <button class="ns-pill" onclick="handleNextStep('context')">
+      <span class="ns-pill-icon">✦</span>
+      <div>
+        <div class="ns-pill-title">Add more context to a role or outcome</div>
+        <div class="ns-pill-sub">Deepen any node in your graph — click it on the left panel to open a conversation</div>
+      </div>
+    </button>
+    <button class="ns-pill" onclick="handleNextStep('interview')">
+      <span class="ns-pill-icon">◈</span>
+      <div>
+        <div class="ns-pill-title">Prepare for an interview</div>
+        <div class="ns-pill-sub">STAR stories, positioning, and likely questions — grounded in your career portrait</div>
+      </div>
+    </button>
+  </div>`;
+}
+
+function showNextSteps() {
+  const scroll = document.getElementById('convScroll');
+  const sec = document.createElement('div');
+  sec.id = 'nextStepsSection';
+  sec.style.cssText = 'margin-top:8px;';
+  sec.innerHTML = buildNextStepsPillsHTML();
+  scroll.appendChild(sec);
+  scroll.scrollTop = scroll.scrollHeight;
+  showCareerChatBar();
+}
+
+function handleNextStep(type) {
+  // Disable all pills so the panel can't be double-activated
+  document.querySelectorAll('#nsPillsContainer .ns-pill').forEach(b => { b.disabled = true; });
+
+  const scroll = document.getElementById('convScroll');
+  if (type === 'resume')    { startResumePrep(scroll);    }
+  else if (type === 'skill')     { startSkillStrength(scroll); }
+  else if (type === 'context')   { startAddContext();           }
+  else if (type === 'interview') { startInterviewPrep(scroll);  }
+}
+
+// ── Resume prep ──
+
+function startResumePrep(scroll) {
+  scroll = scroll || document.getElementById('convScroll');
+  addMsg('system', 'Paste the job description you\'re targeting. I\'ll project your graph onto that role — tailored bullets, positioning statement, and honest gap analysis.');
+  const wrap = document.createElement('div');
+  wrap.id = 'resumePrepWrap';
+  wrap.className = 'inline-input-wrap';
+  wrap.innerHTML = `
+    <textarea class="inline-textarea" id="jdInput" rows="5" placeholder="Paste job description here…"></textarea>
+    <div class="inline-input-footer">
+      <button class="ans-btn" id="jdSubmitBtn" onclick="submitResumePrep()" style="padding:8px 20px;">Project →</button>
+    </div>`;
+  scroll.appendChild(wrap);
+  scroll.scrollTop = scroll.scrollHeight;
+  setTimeout(() => document.getElementById('jdInput')?.focus(), 100);
+}
+
+async function submitResumePrep() {
+  const jd = document.getElementById('jdInput')?.value.trim();
+  if (!jd) return;
+  document.getElementById('jdInput').disabled = true;
+  document.getElementById('jdSubmitBtn').disabled = true;
+  addMsg('user', jd.length > 220 ? jd.slice(0, 220) + '…' : jd);
+
+  const t = addThinking('Projecting your graph onto this role');
+  try {
+    const proj = await callBackend('claude/project', { session_id: S().session_id, job_description: jd });
+    t.remove();
+
+    const bullets = (proj.achievement_bullets || [])
+      .map(b => `<div class="proj-bullet">${b}</div>`).join('');
+    const strengths = (proj.gap_analysis?.strengths || [])
+      .map(s => `<div class="proj-strength">${s}</div>`).join('');
+    const gaps = (proj.gap_analysis?.gaps || [])
+      .map(g => `<div class="proj-gap-item">
+        <div class="proj-gap-name">${g.label || ''}</div>
+        <div class="proj-gap-desc">${g.description || ''}</div>
+        ${g.question ? `<div class="proj-gap-q">→ ${g.question}</div>` : ''}
+      </div>`).join('');
+
+    const card = document.createElement('div');
+    card.className = 'proj-card';
+    card.innerHTML = `
+      <div class="proj-section">
+        <div class="proj-label">Positioning Statement</div>
+        <div class="proj-statement">${proj.positioning_statement || ''}</div>
+      </div>
+      ${bullets ? `<div class="proj-section">
+        <div class="proj-label">Achievement Bullets</div>
+        ${bullets}
+      </div>` : ''}
+      ${strengths ? `<div class="proj-section">
+        <div class="proj-label">Strengths for This Role</div>
+        ${strengths}
+      </div>` : ''}
+      ${gaps ? `<div class="proj-section">
+        <div class="proj-label">Gap Analysis</div>
+        ${gaps}
+      </div>` : ''}
+      ${proj.gap_analysis?.bridge ? `<div class="proj-bridge">${proj.gap_analysis.bridge}</div>` : ''}`;
+
+    const scroll = document.getElementById('convScroll');
+    scroll.appendChild(card);
+    addMsg('system', 'Projection complete. These bullets are grounded in your actual graph — copy them into your resume or use as a starting framework.');
+
+    // Follow-up pill: prep the interview
+    const followUp = document.createElement('div');
+    followUp.style.cssText = 'margin-top:10px;';
+    followUp.innerHTML = `<button class="ns-pill" onclick="this.closest('div').remove();startInterviewPrep(document.getElementById('convScroll'))">
+      <span class="ns-pill-icon">◈</span>
+      <div>
+        <div class="ns-pill-title">Now prepare for the interview</div>
+        <div class="ns-pill-sub">STAR stories and positioning for this specific role</div>
+      </div>
+    </button>`;
+    scroll.appendChild(followUp);
+    scroll.scrollTop = scroll.scrollHeight;
+    saveSessions();
+  } catch(e) {
+    t.remove();
+    addMsg('system', `<span style="color:var(--node-decision)">Projection error: ${e.message}</span>`);
+  }
+}
+
+// ── Skill strengthening ──
+
+function startSkillStrength(scroll) {
+  scroll = scroll || document.getElementById('convScroll');
+  addMsg('system', 'Which skill do you want to develop? Pick one from your graph or type it below.');
+
+  const skills = (S().graphData?.nodes || []).filter(n => n.type === 'skill').slice(0, 8);
+  const chips = skills.length
+    ? `<div class="skill-chips">${skills.map(n =>
+        `<button class="skill-chip" onclick="submitSkillStrength('${n.label.replace(/'/g,"\\'")}',this)">${n.label}</button>`
+      ).join('')}</div>`
+    : '';
+
+  const wrap = document.createElement('div');
+  wrap.id = 'skillPrepWrap';
+  wrap.className = 'inline-input-wrap';
+  wrap.innerHTML = `${chips}
+    <textarea class="inline-textarea" id="skillInput" rows="2" placeholder="Or type a skill — e.g. "stakeholder management", "Python", "financial modelling"…"></textarea>
+    <div class="inline-input-footer">
+      <button class="ans-btn" id="skillSubmitBtn" onclick="submitSkillStrength(null,null)" style="padding:8px 20px;">Get Plan →</button>
+    </div>`;
+  scroll.appendChild(wrap);
+  scroll.scrollTop = scroll.scrollHeight;
+  setTimeout(() => document.getElementById('skillInput')?.focus(), 100);
+}
+
+function submitSkillStrength(skillName, chipEl) {
+  const typed = document.getElementById('skillInput')?.value.trim();
+  const skill = skillName || typed;
+  if (!skill) return;
+
+  if (document.getElementById('skillInput'))    document.getElementById('skillInput').disabled = true;
+  if (document.getElementById('skillSubmitBtn')) document.getElementById('skillSubmitBtn').disabled = true;
+  if (chipEl) chipEl.disabled = true;
+
+  const message = `I want to strengthen my ${skill} skill. Based on my career graph and trajectory, give me:
+1. An honest assessment of where I am now with this skill
+2. The 2-3 highest-leverage actions to develop it in the next 90 days
+3. Specific resources, projects, or experiences that would accelerate growth
+4. How this connects to my career direction`;
+
+  sendCareerChat(message);
+}
+
+// ── Add context ──
+
+function startAddContext() {
+  addMsg('system', 'Click any <strong>node on the graph</strong> (left panel) to open a conversation — add more detail to a role, clarify an outcome, or explore how it connects to your career direction.');
+}
+
+// ── Interview prep ──
+
+function startInterviewPrep(scroll) {
+  scroll = scroll || document.getElementById('convScroll');
+  addMsg('system', 'What role and company are you interviewing for? I\'ll build your preparation grounded in your career portrait and graph.');
+  const wrap = document.createElement('div');
+  wrap.id = 'interviewPrepWrap';
+  wrap.className = 'inline-input-wrap';
+  wrap.innerHTML = `
+    <textarea class="inline-textarea" id="targetRoleInput" rows="2" placeholder="e.g. Senior Product Manager at Stripe…"></textarea>
+    <div class="inline-input-footer">
+      <button class="ans-btn" id="interviewSubmitBtn" onclick="submitInterviewPrep()" style="padding:8px 20px;">Start Prep →</button>
+    </div>`;
+  scroll.appendChild(wrap);
+  scroll.scrollTop = scroll.scrollHeight;
+  setTimeout(() => document.getElementById('targetRoleInput')?.focus(), 100);
+}
+
+function submitInterviewPrep() {
+  const targetRole = document.getElementById('targetRoleInput')?.value.trim();
+  if (!targetRole) return;
+  document.getElementById('targetRoleInput').disabled = true;
+  document.getElementById('interviewSubmitBtn').disabled = true;
+
+  const message = `I'm interviewing for ${targetRole}. Using my career portrait and graph as grounding, help me prepare:
+1. My "tell me about yourself" — a 2-minute arc that leads naturally to this role
+2. Three STAR stories from my background mapped to the most likely competencies
+3. How to frame any gaps or transitions in my background
+4. Two or three tough questions I should expect and how to answer them authentically`;
+
+  sendCareerChat(message);
+}
+
+// ── WELCOME-BACK VIEW ──
+// Builds the right-panel HTML shown when a user returns with a saved session
+// but no cached conversation (new browser, cleared localStorage, etc.)
+function buildRestoredConvHTML() {
+  const hasPortrait  = !!(S().cardStates?.portrait?.html);
+  const hasBranches  = !!(S().cardStates?.directions?.html);
+  const hasStrength  = !!(S().cardStates?.strength?.html);
+  const nodeCount    = S().graphData?.nodes?.length || 0;
+  const answersCount = (S().answers || []).filter(Boolean).length;
+
+  // Status badge row
+  const badge = (label, color, done) => {
+    const border = done
+      ? `rgba(${color === 'accent' ? '232,166,64' : color === 'blue' ? '59,130,246' : '16,185,129'},0.35)`
+      : 'var(--border2)';
+    const text = done ? `var(--${color})` : 'var(--text3)';
+    const mark = done ? '✓ ' : '○ ';
+    return `<div style="font-family:'DM Mono',monospace;font-size:8px;color:${text};padding:3px 8px;border:1px solid ${border};border-radius:3px;letter-spacing:0.08em;">${mark}${label}</div>`;
+  };
+
+  const statusRow = `<div style="display:flex;gap:8px;flex-wrap:wrap;margin:12px 0 16px;">
+    ${badge(`Graph · ${nodeCount} nodes`, 'green', nodeCount > 0)}
+    ${badge('Core Strength', 'accent', hasStrength)}
+    ${badge('Career Directions', 'blue', hasBranches)}
+    ${badge('Career Portrait', 'green', hasPortrait)}
+  </div>`;
+
+  let bodyHTML = '';
+  if (hasPortrait) {
+    bodyHTML = buildNextStepsPillsHTML();
+  } else {
+    const remaining = 4 - answersCount;
+    const desc = hasBranches
+      ? `You have your core strength and career directions. ${remaining} question${remaining !== 1 ? 's' : ''} remain${remaining === 1 ? 's' : ''} to complete your Career Portrait.`
+      : hasStrength
+      ? `You have your core strength. ${answersCount > 0 ? `${answersCount} of 4 questions answered.` : 'Four questions will surface your career directions and portrait.'}`
+      : `Your career graph is built (${nodeCount} nodes). Continue to discover your core strength and career directions.`;
+    bodyHTML = `<div style="font-size:13px;color:var(--text2);line-height:1.75;margin-bottom:16px;">${desc}</div>
+      <button onclick="continueSession()" id="continueBtn" style="
+        background:var(--accent);color:var(--bg);border:none;
+        font-family:'DM Mono',monospace;font-size:10px;letter-spacing:0.1em;text-transform:uppercase;
+        padding:12px 24px;border-radius:4px;cursor:pointer;transition:opacity 0.15s;display:inline-flex;align-items:center;gap:8px;">
+        <span>◆</span> Continue Session
+      </button>`;
+  }
+
+  return `<div class="start-screen" style="align-items:flex-start;text-align:left;padding:36px;">
+    <div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--green);letter-spacing:0.14em;text-transform:uppercase;margin-bottom:10px;">◆ Session Restored</div>
+    <div style="font-family:'Cormorant Garamond',serif;font-size:26px;font-weight:300;line-height:1.3;margin-bottom:4px;">Welcome back.</div>
+    ${statusRow}
+    ${bodyHTML}
+  </div>`;
+}
+
+// Picks up the Q&A flow from the right step when returning without saved conversation
+async function continueSession() {
+  const btn = document.getElementById('continueBtn');
+  if (btn) { btn.disabled = true; btn.textContent = 'Loading…'; }
+
+  // Clear the welcome-back panel
+  document.getElementById('convScroll').innerHTML = '';
+
+  const hasPortrait  = !!(S().cardStates?.portrait?.html);
+  const hasBranches  = !!(S().cardStates?.directions?.html);
+  const hasStrength  = !!(S().cardStates?.strength?.html);
+  const answersCount = (S().answers || []).filter(Boolean).length;
+
+  if (hasPortrait) {
+    showNextSteps();
+    return;
+  }
+
+  if (!hasStrength) {
+    // Graph exists but insight not generated yet
+    setStep(1); setProgress(25);
+    const t = addThinking('Identifying your core strengths');
+    try {
+      const insightResp = await callBackend('claude/insight', { session_id: S().session_id });
+      const insightData = insightResp.strength;
+      t.remove();
+      if (insightData.pattern_nodes) highlightNodes(insightData.pattern_nodes);
+      await typeInsight(insightData.insight.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>'));
+      setStep(2); setProgress(40);
+      addMsg('system', `That strength is real — it shows up across <strong>${S().graphData?.nodes?.length || 0} nodes</strong>. Four questions to sharpen the signal.`);
+      await sleep(600);
+      showQuestion(answersCount);
+    } catch(e) {
+      t.remove();
+      addMsg('system', `<span style="color:var(--node-decision)">Error: ${e.message}</span>`);
+    }
+    return;
+  }
+
+  if (!hasBranches) {
+    // Strength exists, continue Q&A toward branches
+    addMsg('system', `Continuing your session${answersCount > 0 ? ` — you've answered ${answersCount} of 4 questions` : ''}.`);
+    await sleep(400);
+    if (answersCount < 2) {
+      showQuestion(answersCount);
+    } else {
+      // Both Q1+Q2 answered, generate branches
+      setStep(3); setProgress(60);
+      document.getElementById('pill2').className = 'stage-pill done';
+      addMsg('system', `Your graph has <strong>${S().graphData?.nodes?.length || 0} nodes</strong> — generating your career directions now.`);
+      await sleep(600);
+      await showBranches();
+    }
+    return;
+  }
+
+  // Has branches, no portrait — continue with Q3/Q4
+  addMsg('system', `Welcome back. ${4 - answersCount} question${4 - answersCount !== 1 ? 's' : ''} to go for your Career Portrait.`);
+  await sleep(400);
+  if (answersCount <= 2) {
+    showQuestion(2);
+  } else if (answersCount === 3) {
+    showQuestion(3);
+  } else {
+    await showFinalReveal();
+  }
+}
+
 // ── INSIGHT TYPEWRITER ──
 // ── CARD SYSTEM ──
+// ── CAREER CHAT BAR ──
+
+function showCareerChatBar() {
+  const bar = document.getElementById('careerChatBar');
+  if (bar) bar.style.display = 'flex';
+}
+
+function autoResizeCareerChat(el) {
+  el.style.height = '36px';
+  el.style.height = Math.min(el.scrollHeight, 110) + 'px';
+}
+
+async function sendCareerChat(forcedMsg) {
+  const inp  = document.getElementById('careerChatInp');
+  const send = document.getElementById('careerChatSend');
+  const msg  = forcedMsg || inp?.value.trim();
+  if (!msg || send?.disabled) return;
+
+  if (!forcedMsg) {
+    inp.value = '';
+    autoResizeCareerChat(inp);
+  }
+  send.disabled = true;
+
+  addMsg('user', msg);
+
+  // Persist history in session state (last 20 turns)
+  if (!S().careerChatHistory) S().careerChatHistory = [];
+  const history = S().careerChatHistory.slice(-20);
+
+  const t = addThinking('Thinking about your career');
+  try {
+    const resp = await callBackend('claude/career-chat', {
+      session_id: S().session_id,
+      message: msg,
+      history,
+    });
+    t.remove();
+    addMsg('system', resp.content);
+
+    S().careerChatHistory.push({ role: 'user',      content: msg          });
+    S().careerChatHistory.push({ role: 'assistant', content: resp.content });
+    saveDebounced(2000);
+  } catch(e) {
+    t.remove();
+    addMsg('system', `<span style="color:var(--node-decision)">Chat error: ${e.message}</span>`);
+  }
+
+  send.disabled = false;
+  inp.focus();
+}
+
+// ── CONV PANEL MINIMIZE ──
+function toggleConvPanel() {
+  const main = document.querySelector('.main');
+  const btn  = document.getElementById('convMinimizeBtn');
+  const minimized = main.classList.toggle('conv-minimized');
+  btn.textContent = minimized ? '‹' : '›';
+  btn.title = minimized ? 'Expand panel' : 'Minimize panel';
+}
+
 function showCard(cardId, animate=true) {
   const card = document.getElementById(cardId);
   if (!card) return;
@@ -1731,6 +2335,9 @@ function addEnrichedNodeToGraph(n) {
 
 // ── HIGHLIGHT NODES ──
 function highlightNodes(nodeIds) {
+  // Clear any active search so it doesn't fight with the programmatic highlight
+  const inp = document.getElementById('graphSearchInp');
+  if (inp?.value) { inp.value=''; const cb=document.getElementById('graphSearchClear'); if(cb)cb.style.display='none'; const ct=document.getElementById('graphSearchCount'); if(ct)ct.textContent=''; }
   const sel=new Set(nodeIds);
   Object.entries(svgNodeEls).forEach(([id,{circle,glow,text,color,n,g}])=>{
     if(sel.has(id)){
@@ -1761,6 +2368,128 @@ function resetHighlight() {
   S().svgEdgeEls.forEach(({line})=>{line.setAttribute('stroke','#1a1e30');line.setAttribute('stroke-width','1.5');line.setAttribute('opacity','1');});
 }
 
+// ── GRAPH SEARCH ──
+let _graphSearchTimer = null;
+
+function onGraphSearch(query) {
+  clearTimeout(_graphSearchTimer);
+  const clearBtn = document.getElementById('graphSearchClear');
+  if (clearBtn) clearBtn.style.display = query ? 'block' : 'none';
+  _graphSearchTimer = setTimeout(() => applyGraphSearch(query.trim()), 160);
+}
+
+function clearGraphSearch() {
+  const inp = document.getElementById('graphSearchInp');
+  if (inp) inp.value = '';
+  const clearBtn = document.getElementById('graphSearchClear');
+  if (clearBtn) clearBtn.style.display = 'none';
+  const count = document.getElementById('graphSearchCount');
+  if (count) count.textContent = '';
+  resetHighlight();
+}
+
+function applyGraphSearch(query) {
+  const countEl = document.getElementById('graphSearchCount');
+  const nodes = S().graphData?.nodes || [];
+
+  if (!query) {
+    if (countEl) countEl.textContent = '';
+    resetHighlight();
+    return;
+  }
+
+  if (!nodes.length) {
+    if (countEl) { countEl.textContent = 'no graph yet'; countEl.style.color = 'var(--text3)'; }
+    return;
+  }
+
+  // Tokenise — match nodes where ANY token appears in label, detail, or type
+  const tokens = query.toLowerCase().split(/\s+/).filter(Boolean);
+
+  const matchIds = new Set();
+  nodes.forEach(n => {
+    const hay = `${n.label} ${n.detail || ''} ${n.type}`.toLowerCase();
+    if (tokens.some(t => hay.includes(t))) matchIds.add(n.id);
+  });
+
+  // Connected neighbours of matched nodes (one hop) get a softer highlight
+  const neighborIds = new Set();
+  S().svgEdgeEls.forEach(({ sourceId, targetId }) => {
+    if (matchIds.has(sourceId) && !matchIds.has(targetId)) neighborIds.add(targetId);
+    if (matchIds.has(targetId) && !matchIds.has(sourceId)) neighborIds.add(sourceId);
+  });
+
+  // Update counter
+  if (countEl) {
+    if (matchIds.size === 0) {
+      countEl.textContent = 'no matches';
+      countEl.style.color = 'var(--node-decision)';
+    } else {
+      countEl.textContent = `${matchIds.size} match${matchIds.size !== 1 ? 'es' : ''}`;
+      countEl.style.color = 'var(--green)';
+    }
+  }
+
+  // Apply visual state
+  Object.entries(S().svgNodeEls).forEach(([id, { circle, glow, text, color, n, g }]) => {
+    if (matchIds.has(id)) {
+      // Direct match — full color, bright glow, pulsed ring
+      circle.setAttribute('stroke', color);
+      circle.setAttribute('stroke-width', '3');
+      glow.setAttribute('fill', color);
+      glow.setAttribute('opacity', '0.35');
+      glow.setAttribute('filter', 'url(#gf)');
+      text.setAttribute('fill', color);
+      g.style.opacity = '1';
+    } else if (neighborIds.has(id)) {
+      // One hop away — visible but subdued
+      circle.setAttribute('stroke', color);
+      circle.setAttribute('stroke-width', '1.5');
+      glow.setAttribute('opacity', '0.04');
+      glow.removeAttribute('filter');
+      text.setAttribute('fill', '#6b7fa3');
+      g.style.opacity = '0.5';
+    } else {
+      // Unrelated — dim significantly
+      circle.setAttribute('stroke', color);
+      circle.setAttribute('stroke-width', '1.5');
+      glow.setAttribute('opacity', '0');
+      glow.removeAttribute('filter');
+      text.setAttribute('fill', '#1e2840');
+      g.style.opacity = '0.14';
+    }
+  });
+
+  // Edge styling
+  S().svgEdgeEls.forEach(({ line, sourceId, targetId }) => {
+    const bothMatch = matchIds.has(sourceId) && matchIds.has(targetId);
+    const oneMatch  = matchIds.has(sourceId) || matchIds.has(targetId);
+    if (bothMatch) {
+      line.setAttribute('stroke', '#3b82f6');
+      line.setAttribute('stroke-width', '2');
+      line.setAttribute('opacity', '0.85');
+    } else if (oneMatch) {
+      line.setAttribute('stroke', '#2e3d5a');
+      line.setAttribute('stroke-width', '1.5');
+      line.setAttribute('opacity', '0.35');
+    } else {
+      line.setAttribute('stroke', '#1a1e30');
+      line.setAttribute('stroke-width', '1.5');
+      line.setAttribute('opacity', '0.07');
+    }
+  });
+
+  // Staggered pulse on matched nodes so they pop visually
+  let delay = 0;
+  matchIds.forEach(id => {
+    const el = S().svgNodeEls[id]; if (!el) return;
+    setTimeout(() => {
+      el.glow.setAttribute('opacity', '0.55');
+      setTimeout(() => el.glow.setAttribute('opacity', '0.35'), 380);
+    }, delay);
+    delay += 60;
+  });
+}
 
 // ── API KEY FUNCTIONS REMOVED — auth handled via Supabase magic link ──
 
@@ -1906,7 +2635,9 @@ function openNodePanel(nodeId) {
 function closeNodePanel() {
   document.getElementById('nodePanel').classList.remove('open');
   selectedNodeId = null;
-  resetHighlight();
+  // If a search is active, restore its highlight; otherwise full reset
+  const q = document.getElementById('graphSearchInp')?.value.trim();
+  if (q) applyGraphSearch(q); else resetHighlight();
 }
 
 function saveNodeEdits() {
@@ -2013,14 +2744,19 @@ async function sendNodeChat() {
 
 // ── STARTUP: Supabase auth → restore sessions ──
 document.addEventListener('DOMContentLoaded', () => {
+  // Capture the initial start-screen markup before anything can overwrite it
+  _startScreenTemplate = document.getElementById('convScroll').innerHTML;
+
   // Wire up graph background click and page unload regardless of auth
   document.getElementById('graphSvgWrap').addEventListener('click', ev => {
     if (ev.target.tagName === 'svg' || ev.target.id === 'graphSvgWrap') closeNodePanel();
   });
   window.addEventListener('beforeunload', saveSessions);
 
-  // Listen for auth state changes (handles magic link redirect)
-  supabase.auth.onAuthStateChange(async (event, session) => {
+  // Listen for auth state changes — cache token immediately, no getSession() needed
+  supabaseClient.auth.onAuthStateChange(async (event, session) => {
+    _authToken = session?.access_token || null;
+    console.log('[career-os] onAuthStateChange:', event, _authToken ? 'token cached' : 'no token');
     if (session) {
       await onAuthenticated(session.user);
     } else {
@@ -2059,6 +2795,10 @@ async function onAuthenticated(user) {
       Clear ↺
     </button>`;
 
+  // Load any previously saved UI state from localStorage first (convHTML, nodePositions, etc.).
+  // Backend data will override server-authoritative fields but preserve UI-only state.
+  loadSessions();
+
   // Try loading sessions from backend, fall back to localStorage cache
   try {
     const backendSessions = await fetchBackend('sessions');
@@ -2071,8 +2811,15 @@ async function onAuthenticated(user) {
         sessions[slot].graphData   = bs.graph_data   || null;
         sessions[slot].answers     = bs.answers       || [];
         sessions[slot].enrichCount = bs.enrich_count  || 0;
-        sessions[slot].step        = bs.step          || 0;
         sessions[slot].selectedBranch = bs.selected_branch ?? null;
+
+        // Derive actual step from what's been generated (backend only saves step:1 from /extract;
+        // remaining steps are inferred from which insights exist)
+        if (bs.insights?.portrait) sessions[slot].step = 5;
+        else if (bs.insights?.branches?.length) sessions[slot].step = 3;
+        else if (bs.insights?.strength) sessions[slot].step = 2;
+        else if (bs.graph_data) sessions[slot].step = 1;
+        else sessions[slot].step = bs.step || 0;
 
         // Restore branches from insights
         if (bs.insights?.branches) {
@@ -2126,25 +2873,26 @@ async function onAuthenticated(user) {
       }
     });
 
-    saveSessions(); // cache in localStorage
-
+    // Restore the UI — backend data is now merged with localStorage UI state.
+    // Do NOT call saveSessions() here: the DOM still shows the start screen at this
+    // point, and saveSessions() would capture it as convHTML (the root bug this fixes).
     restoreSession();
 
-    // Show indicator if data was restored
+    // Show a brief "restored" toast when the user has real data
     if (backendSessions.length > 0 && backendSessions[0].graph_data) {
       const ind = document.createElement('div');
       ind.style.cssText = `position:fixed;bottom:16px;right:16px;background:var(--surface2);
         border:1px solid var(--border2);border-radius:6px;padding:8px 14px;
         font-family:'DM Mono',monospace;font-size:9px;color:var(--green);
         letter-spacing:0.08em;z-index:999;`;
-      ind.textContent = '✓ Sessions restored';
+      ind.textContent = '✓ Session restored';
       document.body.appendChild(ind);
       setTimeout(() => ind.remove(), 2500);
     }
   } catch(e) {
+    // Backend unavailable — loadSessions() already ran above; just restore the UI
     console.warn('Could not load sessions from backend, using localStorage cache:', e);
-    const hadSaved = loadSessions();
-    if (hadSaved) restoreSession();
+    restoreSession();
   }
 }
 

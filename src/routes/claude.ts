@@ -336,4 +336,36 @@ router.post('/project', async (req: Request, res: Response) => {
   }
 });
 
+// ─── POST /claude/career-chat ─────────────────────────────────
+
+router.post('/career-chat', async (req: Request, res: Response) => {
+  const userId = uid(req);
+  const { session_id, message, history } = req.body;
+  if (!session_id || !message) {
+    res.status(400).json({ error: 'session_id, message required' }); return;
+  }
+
+  if (!await checkRateLimit(userId, 'career_chat')) {
+    res.status(429).json({ error: 'Daily career chat limit reached' }); return;
+  }
+
+  const session = await validateSessionOwnership(session_id, userId);
+  if (!session) { res.status(403).json({ error: 'Forbidden' }); return; }
+
+  try {
+    const pkg = await assembleContext({
+      user_id: userId, task: 'career_chat',
+      params: { session_id, message, history: history ?? [] },
+    });
+
+    const response = await callClaude(userId, session_id, 'career_chat', pkg, 600);
+    const reply = responseText(response);
+
+    res.json({ content: reply, metadata: pkg.metadata });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : 'career_chat failed';
+    res.status(500).json({ error: msg });
+  }
+});
+
 export default router;

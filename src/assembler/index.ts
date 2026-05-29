@@ -14,6 +14,7 @@ const CEILINGS: Record<string, number> = {
   node_chat:                 1000,
   resume_projection:         1200,
   career_summary_generation:  600,
+  career_chat:               1400,
 };
 
 function tokens(text: string) { return Math.ceil(text.length / 4); }
@@ -68,6 +69,7 @@ export async function assembleContext(input: AssemblerInput): Promise<PromptPack
     case 'node_chat':                 return assembleNodeChat(input);
     case 'resume_projection':         return assembleResumeProjection(input);
     case 'career_summary_generation': return assembleCareerSummaryGeneration(input);
+    case 'career_chat':               return assembleCareerChat(input);
     default: throw new Error(`AssemblerError: unknown task ${(input as never as { task: string }).task}`);
   }
 }
@@ -414,5 +416,70 @@ async function assembleCareerSummaryGeneration(input: AssemblerInput): Promise<P
     estimated_tokens: Math.min(est, CEILINGS.career_summary_generation),
     cache_key: `career_summary:${session_id}:v${session.summary_version}`,
     metadata: { nodes_selected: w3List.length, node_ids_selected: w3List.map(n => n.id), truncated: est > CEILINGS.career_summary_generation, summary_version: session.summary_version ?? 0 },
+  };
+}
+
+// ─── 9. career_chat ──────────────────────────────────────────
+
+async function assembleCareerChat(input: AssemblerInput): Promise<PromptPackage> {
+  const { session_id, message, history = [] } = input.params as {
+    session_id: string;
+    message: string;
+    history?: Array<{ role: string; content: string }>;
+  };
+  const session = await getSession(session_id, input.user_id);
+  if (!session) throw new Error('AssemblerError: session not found');
+
+  const careerSummary = buildCareerSummary(session);
+  const graph: CareerGraph = session.graph_data ?? { nodes: [], edges: [] };
+
+  // Defining nodes as grounding anchors
+  const anchors = graph.nodes
+    .filter(n => n.weight === 3)
+    .slice(0, 8)
+    .map(n => `${n.label} [${n.type}]: ${n.detail}`)
+    .join('\n');
+
+  const portrait  = session.insights?.portrait  as Record<string, string> | undefined;
+  const strength  = session.insights?.strength  as { insight?: string } | undefined;
+  const branches  = session.insights?.branches  as Array<Record<string, string>> | undefined;
+
+  const insightContext = [
+    strength?.insight  ? `Core strength: ${strength.insight}` : '',
+    portrait?.identity ? `Career identity: ${portrait.identity}` : '',
+    portrait?.next_action ? `Recommended next move: ${portrait.next_action}` : '',
+    portrait?.rare_factor ? `What makes them rare: ${portrait.rare_factor}` : '',
+    branches?.length
+      ? `Career directions: ${branches.slice(0, 3).map(b => b.title ?? b.direction ?? '').filter(Boolean).join(' | ')}`
+      : '',
+  ].filter(Boolean).join('\n');
+
+  // Windowed conversation history (last 8 turns)
+  const recent = (history as Array<{ role: string; content: string }>).slice(-8);
+  const historyText = recent.length
+    ? recent.map(m => `${m.role === 'user' ? 'User' : 'Assistant'}: ${m.content}`).join('\n')
+    : '';
+
+  const system = `You are a career intelligence assistant. The user has completed their career graph analysis. Answer their career questions with specificity — ground every answer in their actual graph data, portrait, and insights. Never give generic advice. Be direct, insightful, and concise (3-5 sentences unless more is clearly needed).`;
+
+  const user_context = [
+    `Career summary: ${careerSummary}`,
+    anchors          ? `\nKey career nodes:\n${anchors}` : '',
+    insightContext   ? `\nInsights:\n${insightContext}` : '',
+    historyText      ? `\nConversation so far:\n${historyText}` : '',
+  ].filter(Boolean).join('\n');
+
+  const est = tokens(system + user_context + message);
+  const w3List = graph.nodes.filter(n => n.weight === 3);
+  return {
+    system, user_context, task_prompt: message,
+    estimated_tokens: Math.min(est, CEILINGS.career_chat),
+    cache_key: `career_chat:${session_id}`,
+    metadata: {
+      nodes_selected: w3List.length,
+      node_ids_selected: w3List.map(n => n.id),
+      truncated: est > CEILINGS.career_chat,
+      summary_version: session.summary_version ?? 0,
+    },
   };
 }

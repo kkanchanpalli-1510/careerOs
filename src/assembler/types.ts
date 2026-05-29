@@ -8,7 +8,8 @@ export type TaskType =
   | 'final_synthesis'
   | 'node_chat'
   | 'resume_projection'
-  | 'career_summary_generation';
+  | 'career_summary_generation'
+  | 'career_chat';
 
 export interface Node {
   id: string;
