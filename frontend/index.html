@@ -1704,6 +1704,15 @@ function handleNextStep(type) {
   else if (type === 'interview') { startInterviewPrep(scroll);  }
 }
 
+// ── Cancel / back from any inline action form ──
+function cancelNextStep(wrapId) {
+  document.getElementById(wrapId)?.remove();
+  // Re-enable all next-step pills so user can pick a different action
+  document.querySelectorAll('#nsPillsContainer .ns-pill').forEach(b => { b.disabled = false; });
+  const scroll = document.getElementById('convScroll');
+  if (scroll) scroll.scrollTop = scroll.scrollHeight;
+}
+
 // ── Resume prep ──
 
 function startResumePrep(scroll) {
@@ -1715,6 +1724,7 @@ function startResumePrep(scroll) {
   wrap.innerHTML = `
     <textarea class="inline-textarea" id="jdInput" rows="5" placeholder="Paste job description here…"></textarea>
     <div class="inline-input-footer">
+      <button class="ans-btn cancel-btn" onclick="cancelNextStep('resumePrepWrap')" style="background:none;border:1px solid var(--border2);color:var(--text2);">← Back</button>
       <button class="ans-btn" id="jdSubmitBtn" onclick="submitResumePrep()" style="padding:8px 20px;">Project →</button>
     </div>`;
   scroll.appendChild(wrap);
@@ -1808,6 +1818,7 @@ function startSkillStrength(scroll) {
   wrap.innerHTML = `${chips}
     <textarea class="inline-textarea" id="skillInput" rows="2" placeholder="Or type a skill — e.g. "stakeholder management", "Python", "financial modelling"…"></textarea>
     <div class="inline-input-footer">
+      <button class="ans-btn cancel-btn" onclick="cancelNextStep('skillPrepWrap')" style="background:none;border:1px solid var(--border2);color:var(--text2);">← Back</button>
       <button class="ans-btn" id="skillSubmitBtn" onclick="submitSkillStrength(null,null)" style="padding:8px 20px;">Get Plan →</button>
     </div>`;
   scroll.appendChild(wrap);
@@ -1850,6 +1861,7 @@ function startInterviewPrep(scroll) {
   wrap.innerHTML = `
     <textarea class="inline-textarea" id="targetRoleInput" rows="2" placeholder="e.g. Senior Product Manager at Stripe…"></textarea>
     <div class="inline-input-footer">
+      <button class="ans-btn cancel-btn" onclick="cancelNextStep('interviewPrepWrap')" style="background:none;border:1px solid var(--border2);color:var(--text2);">← Back</button>
       <button class="ans-btn" id="interviewSubmitBtn" onclick="submitInterviewPrep()" style="padding:8px 20px;">Start Prep →</button>
     </div>`;
   scroll.appendChild(wrap);
