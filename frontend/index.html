@@ -597,6 +597,12 @@ svg .node-g:active{cursor:grabbing;}
     </div>
     <!-- ── INSIGHT TABS (progressive reveal) ── -->
     <div class="insight-tab-bar" id="insightTabBar" style="display:none;">
+      <!-- qa tab: landing tab during Q&A (steps 1-4) -->
+      <button class="insight-tab" id="itab-qa"
+        style="--itab-color:#e8a640;display:none;"
+        onclick="switchInsightTab('qa')">
+        <span class="itab-dot" style="background:#e8a640"></span>Career Intelligence
+      </button>
       <button class="insight-tab" id="itab-strength"
         style="--itab-color:#e8a640;display:none;"
         onclick="switchInsightTab('strength')">
@@ -612,6 +618,12 @@ svg .node-g:active{cursor:grabbing;}
         onclick="switchInsightTab('portrait')">
         <span class="itab-dot" style="background:#10b981"></span>Career Portrait
       </button>
+      <!-- survey tab: appears at step 5, shows Q&A answers -->
+      <button class="insight-tab" id="itab-survey"
+        style="--itab-color:#6b7fa3;display:none;"
+        onclick="switchInsightTab('survey')">
+        <span class="itab-dot" style="background:#6b7fa3"></span>Survey
+      </button>
     </div>
 
     <!-- ── INSIGHT PANES (one shown at a time) ── -->
@@ -623,6 +635,9 @@ svg .node-g:active{cursor:grabbing;}
     </div>
     <div class="insight-pane" id="ipane-portrait" style="display:none;">
       <div id="bodyPortrait"></div>
+    </div>
+    <div class="insight-pane" id="ipane-survey" style="display:none;">
+      <div id="bodySurvey"></div>
     </div>
 
     <div class="conv-scroll" id="convScroll">
@@ -972,7 +987,8 @@ function saveSessions() {
     S().cardStates = {
       strength:   { visible: document.getElementById('itab-strength')?.style.display   !== 'none', active: document.getElementById('ipane-strength')?.style.display   !== 'none', html: document.getElementById('insightText')?.innerHTML   || '' },
       directions: { visible: document.getElementById('itab-directions')?.style.display !== 'none', active: document.getElementById('ipane-directions')?.style.display !== 'none', html: document.getElementById('bodyDirections')?.innerHTML || '' },
-      portrait:   { visible: document.getElementById('itab-portrait')?.style.display   !== 'none', active: document.getElementById('ipane-portrait')?.style.display   !== 'none', html: document.getElementById('bodyPortrait')?.innerHTML   || '' }
+      portrait:   { visible: document.getElementById('itab-portrait')?.style.display   !== 'none', active: document.getElementById('ipane-portrait')?.style.display   !== 'none', html: document.getElementById('bodyPortrait')?.innerHTML   || '' },
+      survey:     { visible: document.getElementById('itab-survey')?.style.display     !== 'none', active: document.getElementById('ipane-survey')?.style.display     !== 'none', html: '' }
     };
     // Also save current node positions from live SVG
     Object.keys(S().svgNodeEls).forEach(id => {
@@ -1124,8 +1140,11 @@ function restoreSession() {
     if (cs.directions?.html) { document.getElementById('bodyDirections').innerHTML = cs.directions.html; showCard('cardDirections', false); if (!cs.directions.active) collapseCard('cardDirections'); }
     if (cs.portrait?.html)   { document.getElementById('bodyPortrait').innerHTML   = cs.portrait.html;   showCard('cardPortrait',   false); if (!cs.portrait.active)   collapseCard('cardPortrait'); }
     // If no pane is active, make sure conv-scroll is visible
-    const anyActive = ['strength','directions','portrait'].some(k => document.getElementById('ipane-'+k)?.style.display !== 'none');
+    const anyActive = ['strength','directions','portrait','survey'].some(k => document.getElementById('ipane-'+k)?.style.display !== 'none');
     if (!anyActive) document.getElementById('convScroll').style.display = '';
+    // Mark qa tab active if visible (steps 1-4) and no pane is showing
+    const qaTab = document.getElementById('itab-qa');
+    if (qaTab && qaTab.style.display !== 'none' && !anyActive) qaTab.classList.add('active');
   }
 
   closeNodePanel();
@@ -1261,6 +1280,38 @@ function setStep(n) {
     if (n >= (i+1)*2-1 && n < (i+1)*2+1) el.classList.add('active');
     else if (n >= (i+1)*2) el.classList.add('done');
   });
+
+  const bar    = document.getElementById('insightTabBar');
+  const qaTab  = document.getElementById('itab-qa');
+  const srvTab = document.getElementById('itab-survey');
+
+  if (n === 0) {
+    // Pre-resume: hide tab bar entirely
+    if (bar) bar.style.display = 'none';
+  } else if (n >= 1 && n < 5) {
+    // Q&A in progress: show tab bar, career intelligence tab is the landing tab
+    if (bar) bar.style.display = '';
+    if (qaTab) qaTab.style.display = '';
+    // Make qa tab active only if no insight pane is currently showing
+    const anyPaneActive = ['strength','directions','portrait','survey'].some(
+      k => document.getElementById('ipane-'+k)?.style.display !== 'none'
+    );
+    if (!anyPaneActive && qaTab) qaTab.classList.add('active');
+  } else if (n >= 5) {
+    // Complete: hide qa tab, rename secondary tabs, show survey tab
+    if (qaTab) { qaTab.style.display = 'none'; qaTab.classList.remove('active'); }
+    // Rename directions → Career Priorities
+    const dirTab = document.getElementById('itab-directions');
+    if (dirTab) dirTab.innerHTML = `<span class="itab-dot" style="background:#3b82f6"></span>Career Priorities`;
+    // Rename portrait → Career Narrative
+    const portTab = document.getElementById('itab-portrait');
+    if (portTab) portTab.innerHTML = `<span class="itab-dot" style="background:#10b981"></span>Career Narrative`;
+    // Show survey tab and populate it
+    if (srvTab) srvTab.style.display = '';
+    const bodyS = document.getElementById('bodySurvey');
+    if (bodyS && !bodyS.innerHTML) bodyS.innerHTML = buildSurveyHTML();
+    if (bar) bar.style.display = '';
+  }
 }
 function scrollDown() {
   const s = document.getElementById('convScroll');
@@ -1528,6 +1579,9 @@ async function showFinalReveal() {
     t.remove();
     resetHighlight();
 
+    // Populate survey pane with Q&A answers (for the Survey tab)
+    document.getElementById('bodySurvey').innerHTML = buildSurveyHTML();
+
     // Write into portrait card
     document.getElementById('bodyPortrait').innerHTML = `
       <div class="portrait-identity">${final.identity||'Career Identity'}</div>
@@ -1549,7 +1603,7 @@ async function showFinalReveal() {
     await sleep(200);
     showCard('cardPortrait');
 
-    addMsg('system', `Your career portrait is ready — see the Career Portrait tab above.`);
+    addMsg('system', `Your Career Narrative is ready — tap the <strong>Career Narrative</strong> tab above to read it, or use the tabs to explore Core Strength and Career Priorities.`);
     setProgress(100);
     saveSessions();
 
@@ -1683,8 +1737,9 @@ function buildNextStepsPillsHTML() {
 }
 
 function showNextSteps() {
-  // Return to conv-scroll view (portrait tab stays accessible via tab bar)
-  collapseCard('cardPortrait');
+  // At step 5, portrait tab stays ACTIVE — don't collapse it.
+  // Add next-steps pills to convScroll so they're ready when user taps Career Narrative tab
+  // again (toggle off) or uses the chat bar.
   const scroll = document.getElementById('convScroll');
   const sec = document.createElement('div');
   sec.id = 'nextStepsSection';
@@ -1940,6 +1995,28 @@ function buildRestoredConvHTML() {
   </div>`;
 }
 
+// ── SURVEY PANE ──
+// Builds the Q&A answers view shown in the Survey tab at step 5
+function buildSurveyHTML() {
+  const answers = S().answers || [];
+  const rows = QUESTIONS.map((q, i) => `
+    <div style="margin-bottom:22px;padding-bottom:22px;${i < QUESTIONS.length-1 ? 'border-bottom:1px solid var(--border);' : ''}">
+      <div style="font-family:'DM Mono',monospace;font-size:8px;color:var(--accent);
+        letter-spacing:0.12em;text-transform:uppercase;margin-bottom:7px;">${q.num}</div>
+      <div style="font-family:'Cormorant Garamond',serif;font-size:15px;font-weight:400;
+        font-style:italic;line-height:1.45;color:var(--text);margin-bottom:10px;">${q.text}</div>
+      <div style="font-size:12px;color:var(--text2);line-height:1.75;
+        background:var(--surface2);padding:12px 14px;border-radius:6px;
+        border-left:2px solid var(--accent);">${answers[i]
+          ? answers[i].replace(/\n/g,'<br>')
+          : '<span style="color:var(--text3);font-style:italic;">Not answered yet</span>'
+        }</div>
+    </div>`).join('');
+  return `<div style="font-family:'DM Mono',monospace;font-size:8px;color:var(--text3);
+    letter-spacing:0.12em;text-transform:uppercase;margin-bottom:18px;">
+    ◆ Your Career Intelligence Answers</div>${rows}`;
+}
+
 // Picks up the Q&A flow from the right step when returning without saved conversation
 async function continueSession() {
   const btn = document.getElementById('continueBtn');
@@ -2035,7 +2112,7 @@ async function sendCareerChat(forcedMsg) {
   send.disabled = true;
 
   // Ensure conv-scroll is visible when chatting (close any open insight pane)
-  ['strength','directions','portrait'].forEach(k => {
+  ['strength','directions','portrait','survey'].forEach(k => {
     const p = document.getElementById('ipane-' + k);
     const t = document.getElementById('itab-' + k);
     if (p && p.style.display !== 'none') {
@@ -2044,6 +2121,9 @@ async function sendCareerChat(forcedMsg) {
     }
   });
   document.getElementById('convScroll').style.display = '';
+  // Mark qa tab active if it's visible (steps 1-4)
+  const _qaTab = document.getElementById('itab-qa');
+  if (_qaTab && _qaTab.style.display !== 'none') _qaTab.classList.add('active');
 
   addMsg('user', msg);
 
@@ -2084,24 +2164,33 @@ function toggleConvPanel() {
 
 // ── INSIGHT TAB SYSTEM ──
 // Maps legacy cardId strings → tab key used in the new right-panel tab design
-const _INSIGHT_KEY = { cardStrength:'strength', cardDirections:'directions', cardPortrait:'portrait' };
+const _INSIGHT_KEY = { cardStrength:'strength', cardDirections:'directions', cardPortrait:'portrait', cardSurvey:'survey' };
 
 function _activateInsightTab(key) {
-  // Deactivate all panes first
-  ['strength','directions','portrait'].forEach(k => {
+  // Deactivate all panes and mark all tab buttons inactive
+  ['strength','directions','portrait','survey'].forEach(k => {
     const p = document.getElementById('ipane-' + k);
     const t = document.getElementById('itab-' + k);
     if (p) p.style.display = 'none';
     if (t) t.classList.remove('active');
   });
-  // Hide conv-scroll while a pane is shown
-  const scroll = document.getElementById('convScroll');
-  if (scroll) scroll.style.display = 'none';
-  // Activate requested pane + tab
-  const pane = document.getElementById('ipane-' + key);
-  const tab  = document.getElementById('itab-' + key);
-  if (pane) pane.style.display = '';
-  if (tab)  tab.classList.add('active');
+  const qaTab = document.getElementById('itab-qa');
+
+  if (key === 'qa') {
+    // qa key = show conv-scroll, mark qa tab active
+    const scroll = document.getElementById('convScroll');
+    if (scroll) scroll.style.display = '';
+    if (qaTab) qaTab.classList.add('active');
+  } else {
+    // Hide conv-scroll, deactivate qa tab, show requested pane + tab
+    const scroll = document.getElementById('convScroll');
+    if (scroll) scroll.style.display = 'none';
+    if (qaTab) qaTab.classList.remove('active');
+    const pane = document.getElementById('ipane-' + key);
+    const tab  = document.getElementById('itab-' + key);
+    if (pane) pane.style.display = '';
+    if (tab)  tab.classList.add('active');
+  }
 }
 
 function _deactivateInsightTab(key) {
@@ -2112,6 +2201,9 @@ function _deactivateInsightTab(key) {
   // Restore conv-scroll
   const scroll = document.getElementById('convScroll');
   if (scroll) scroll.style.display = '';
+  // Mark qa tab active if it's visible (steps 1-4)
+  const qaTab = document.getElementById('itab-qa');
+  if (qaTab && qaTab.style.display !== 'none') qaTab.classList.add('active');
 }
 
 // Reveal tab button + switch to it (called when insight data first arrives)
@@ -2134,6 +2226,12 @@ function collapseCard(cardId) {
 
 // Tab click — toggle between pane and conv-scroll
 function switchInsightTab(key) {
+  if (key === 'qa') {
+    // qa always activates conv-scroll (no toggle off)
+    _activateInsightTab('qa');
+    saveDebounced(300);
+    return;
+  }
   const pane = document.getElementById('ipane-' + key);
   if (pane && pane.style.display !== 'none') {
     _deactivateInsightTab(key);
@@ -2147,6 +2245,7 @@ function switchInsightTab(key) {
 function toggleCard(cardId) {
   const key = _INSIGHT_KEY[cardId];
   if (!key) return;
+  if (key === 'qa') { _activateInsightTab('qa'); saveDebounced(500); return; }
   const pane = document.getElementById('ipane-' + key);
   if (pane && pane.style.display !== 'none') {
     _deactivateInsightTab(key);
