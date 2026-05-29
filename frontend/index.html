@@ -1251,11 +1251,11 @@ function rerenderGraph() {
     if(n.weight===3){const a=document.createElementNS('http://www.w3.org/2000/svg','animate');a.setAttribute('attributeName','opacity');a.setAttribute('values','0.06;0.16;0.06');a.setAttribute('dur',(2.5+Math.random()*1.5)+'s');a.setAttribute('repeatCount','indefinite');glow.appendChild(a);}
     g.appendChild(glow);
     const c=document.createElementNS('http://www.w3.org/2000/svg','circle');c.setAttribute('cx',n.x);c.setAttribute('cy',n.y);c.setAttribute('r',n.r);c.setAttribute('fill','#0f1018');c.setAttribute('stroke',color);c.setAttribute('stroke-width',n.weight===3?'2':'1.5');c.style.transition='stroke 0.4s,stroke-width 0.3s';g.appendChild(c);
-    if(n.weight===3){const dot=document.createElementNS('http://www.w3.org/2000/svg','circle');dot.setAttribute('cx',n.x);dot.setAttribute('cy',n.y);dot.setAttribute('r',3);dot.setAttribute('fill',color);dot.setAttribute('opacity','0.6');g.appendChild(dot);}
+    let dotEl=null;if(n.weight===3){dotEl=document.createElementNS('http://www.w3.org/2000/svg','circle');dotEl.setAttribute('cx',n.x);dotEl.setAttribute('cy',n.y);dotEl.setAttribute('r',3);dotEl.setAttribute('fill',color);dotEl.setAttribute('opacity','0.6');g.appendChild(dotEl);}
     const txt=document.createElementNS('http://www.w3.org/2000/svg','text');txt.setAttribute('x',n.x);txt.setAttribute('y',n.y+n.r+12);txt.setAttribute('text-anchor','middle');txt.setAttribute('fill','#6b7fa3');txt.setAttribute('font-family','DM Mono,monospace');txt.setAttribute('font-size','8');txt.setAttribute('letter-spacing','0.3');txt.style.transition='fill 0.3s';txt.textContent=n.label.length>18?n.label.slice(0,17)+'…':n.label;g.appendChild(txt);
     S().svgNodeEls[n.id]={g,circle:c,glow,text:txt,color,n};
     S().nodePositions[n.id]={x:n.x,y:n.y};
-    enableDrag(g,n.id,()=>S().nodePositions[n.id],(newX,newY)=>{S().nodePositions[n.id]={x:newX,y:newY};c.setAttribute('cx',newX);c.setAttribute('cy',newY);glow.setAttribute('cx',newX);glow.setAttribute('cy',newY);txt.setAttribute('x',newX);txt.setAttribute('y',newY+n.r+12);});
+    enableDrag(g,n.id,()=>S().nodePositions[n.id],(newX,newY)=>{S().nodePositions[n.id]={x:newX,y:newY};c.setAttribute('cx',newX);c.setAttribute('cy',newY);glow.setAttribute('cx',newX);glow.setAttribute('cy',newY);txt.setAttribute('x',newX);txt.setAttribute('y',newY+n.r+12);if(dotEl){dotEl.setAttribute('cx',newX);dotEl.setAttribute('cy',newY);}});
     g.addEventListener('mouseenter',ev=>{if(dragState)return;c.setAttribute('stroke-width','2.5');glow.setAttribute('opacity','0.2');txt.setAttribute('fill',color);S().svgEdgeEls.forEach(({line,sourceId,targetId})=>{if(sourceId===n.id||targetId===n.id){line.setAttribute('stroke',color);line.setAttribute('stroke-width','2');line.setAttribute('marker-end','url(#ah)');}});ntip.style.display='block';ntip.innerHTML=`<div class="ntip-type">${n.type}${n.year?' · '+n.year:''}</div><div class="ntip-label">${n.label}</div><div class="ntip-detail">${n.detail||''}</div><div style="margin-top:4px;font-size:8px;color:var(--accent);">Click · Drag</div>`;});
     g.addEventListener('mousemove',ev=>{if(dragState)return;const r=wrap.getBoundingClientRect();let tx=ev.clientX-r.left+12,ty=ev.clientY-r.top-10;if(tx+210>W)tx-=210;ntip.style.left=tx+'px';ntip.style.top=ty+'px';});
     g.addEventListener('mouseleave',()=>{if(dragState)return;c.setAttribute('stroke-width',n.weight===3?'2':'1.5');glow.setAttribute('opacity','0.06');txt.setAttribute('fill','#6b7fa3');S().svgEdgeEls.forEach(({line,sourceId,targetId})=>{if(sourceId===n.id||targetId===n.id){line.setAttribute('stroke','#1a1e30');line.setAttribute('stroke-width','1.5');line.setAttribute('marker-end','url(#ad)');}});ntip.style.display='none';});
@@ -1641,9 +1641,8 @@ window.submitAnswer = async function(idx) {
       if (ed.new_nodes?.length) {
         ed.new_nodes.forEach(n => { graphData.nodes.push(n); addEnrichedNodeToGraph(n); });
         enrichCount += ed.new_nodes.length;
-        document.getElementById('enrichStat').style.display = 'block';
         document.getElementById('enrichCount').textContent = enrichCount;
-        document.getElementById('nodeCount').textContent = S().graphData.nodes.length;
+        flashNewNodes(ed.new_nodes.map(n => n.id));
         addMsg('system', `<em>✦ Added to your graph:</em> ${ed.new_nodes.length} new node${ed.new_nodes.length > 1 ? 's' : ''} — ${ed.new_nodes.map(n => n.label).join(', ')}`);
       }
     } catch(e) { t.remove(); }
@@ -1668,9 +1667,8 @@ window.submitAnswer = async function(idx) {
       if (ed.new_nodes?.length) {
         ed.new_nodes.forEach(n => { graphData.nodes.push(n); addEnrichedNodeToGraph(n); });
         enrichCount += ed.new_nodes.length;
-        document.getElementById('enrichStat').style.display = 'block';
         document.getElementById('enrichCount').textContent = enrichCount;
-        document.getElementById('nodeCount').textContent = S().graphData.nodes.length;
+        flashNewNodes(ed.new_nodes.map(n => n.id));
       }
     }).catch(() => {});
     await sleep(400);
@@ -1688,9 +1686,8 @@ window.submitAnswer = async function(idx) {
       if (ed.new_nodes?.length) {
         ed.new_nodes.forEach(n => { graphData.nodes.push(n); addEnrichedNodeToGraph(n); });
         enrichCount += ed.new_nodes.length;
-        document.getElementById('enrichStat').style.display = 'block';
         document.getElementById('enrichCount').textContent = enrichCount;
-        document.getElementById('nodeCount').textContent = S().graphData.nodes.length;
+        flashNewNodes(ed.new_nodes.map(n => n.id));
       }
     }).catch(() => {});
     await sleep(600);
@@ -2371,7 +2368,8 @@ function renderGraph(data) {
     c.style.transition='stroke 0.4s,stroke-width 0.3s,fill 0.3s';
     g.appendChild(c);
 
-    if(n.weight===3){const dot=document.createElementNS('http://www.w3.org/2000/svg','circle');dot.setAttribute('cx',n.x);dot.setAttribute('cy',n.y);dot.setAttribute('r',3);dot.setAttribute('fill',color);dot.setAttribute('opacity','0.6');g.appendChild(dot);}
+    let dotEl=null;
+    if(n.weight===3){dotEl=document.createElementNS('http://www.w3.org/2000/svg','circle');dotEl.setAttribute('cx',n.x);dotEl.setAttribute('cy',n.y);dotEl.setAttribute('r',3);dotEl.setAttribute('fill',color);dotEl.setAttribute('opacity','0.6');g.appendChild(dotEl);}
 
     const txt=document.createElementNS('http://www.w3.org/2000/svg','text');
     txt.setAttribute('x',n.x);txt.setAttribute('y',n.y+n.r+12);txt.setAttribute('text-anchor','middle');
@@ -2392,9 +2390,7 @@ function renderGraph(data) {
         c.setAttribute('cx', newX); c.setAttribute('cy', newY);
         glow.setAttribute('cx', newX); glow.setAttribute('cy', newY);
         txt.setAttribute('x', newX); txt.setAttribute('y', newY + n.r + 12);
-        // move dot if present
-        const dot = g.querySelector('circle:nth-child(3)');
-        if (dot && n.weight === 3) { dot.setAttribute('cx', newX); dot.setAttribute('cy', newY); }
+        if (dotEl) { dotEl.setAttribute('cx', newX); dotEl.setAttribute('cy', newY); }
       }
     );
 
@@ -2430,6 +2426,27 @@ function renderGraph(data) {
   sorted.forEach((n,i)=>setTimeout(()=>{ if(svgNodeEls[n.id])svgNodeEls[n.id].g.style.opacity='1'; },60+i*45));
   const ed=60+sorted.length*45+180;
   svgEdgeEls.forEach(({line},i)=>setTimeout(()=>line.style.opacity='1',ed+i*12));
+}
+
+// ── FLASH NEW NODES ──
+// Brief gold highlight on newly added nodes — fades back to normal after 3 s
+function flashNewNodes(nodeIds) {
+  if (!nodeIds?.length) return;
+  setTimeout(() => {
+    nodeIds.forEach(id => {
+      const el = svgNodeEls[id]; if (!el) return;
+      el.circle.setAttribute('stroke','#e8a640');
+      el.circle.setAttribute('stroke-width','2.5');
+      el.glow.setAttribute('fill','#e8a640');
+      el.glow.setAttribute('opacity','0.45');
+      setTimeout(() => {
+        el.circle.setAttribute('stroke', el.color);
+        el.circle.setAttribute('stroke-width', el.n.weight === 3 ? '2' : '1.5');
+        el.glow.setAttribute('fill', el.color);
+        el.glow.setAttribute('opacity', '0.06');
+      }, 3000);
+    });
+  }, 350); // slight delay so the node has appeared
 }
 
 // ── ADD ENRICHED NODE ──
@@ -2485,6 +2502,13 @@ function addEnrichedNodeToGraph(n) {
       txt.setAttribute('x', newX); txt.setAttribute('y', newY + r + 12);
     }
   );
+
+  // Always keep the stat bar in sync — node was already pushed to graphData before this call
+  const nc = document.getElementById('nodeCount');
+  if (nc) nc.textContent = S().graphData?.nodes?.length || 0;
+  document.getElementById('liveDot')?.classList.add('live');
+  const es = document.getElementById('enrichStat');
+  if (es) es.style.display = 'flex';
 }
 
 // ── HIGHLIGHT NODES ──
