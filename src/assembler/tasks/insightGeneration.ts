@@ -73,6 +73,13 @@ If there is a single capability or instinct that appears in every role across th
 Frame: "Across every role you have held, the constant is..."
 Example signal: the same skill or decision type appearing with BUILT_ON or DEMONSTRATED edges across 3+ role nodes.
 
+RECENCY PRINCIPLE:
+The insight must reflect who this person IS NOW and IS BECOMING — not just who they were.
+- Nodes with recent years (last 2-3 years) are leading indicators; treat them as more signal-rich than older nodes with the same weight
+- If recent nodes reveal an emerging capability or identity shift — surface that over the historical through-line
+- The identity reframe (sentence 3) should describe who they are today and growing into, not just what they've always been
+- Exception: if a decades-long behavioral pattern has recent evidence too, that cross-temporal consistency IS worth naming
+
 ABSOLUTE RULES:
 - Never use: seasoned, passionate, proven, dynamic, results-driven, strategic thinker, thought leader, self-starter — these are resume words that signal nothing
 - Never open with their job title or company name

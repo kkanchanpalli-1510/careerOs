@@ -19,6 +19,30 @@ const CEILINGS: Record<string, number> = {
 
 function tokens(text: string) { return Math.ceil(text.length / 4); }
 
+// ─── Recency helpers ─────────────────────────────────────────
+// Parse the end year from a node's year field (e.g. "2024", "2020-2024", "2020-Present")
+function parseEndYear(year: string | null | undefined): number {
+  if (!year) return 0;
+  if (/present/i.test(year)) return new Date().getFullYear();
+  const range = year.match(/(\d{4})\s*[-–]\s*(\d{4}|\bpresent\b)/i);
+  if (range) return /present/i.test(range[2]) ? new Date().getFullYear() : parseInt(range[2]);
+  const single = year.match(/(\d{4})/);
+  return single ? parseInt(single[1]) : 0;
+}
+
+// Returns 0-3: +3 within 1 yr, +2 within 3 yrs, +1 within 6 yrs, 0 older/unknown
+function getRecencyScore(node: Node, currentYear: number): number {
+  const endYear = parseEndYear(node.year);
+  if (!endYear) return 0;
+  const age = currentYear - endYear;
+  if (age <= 1) return 3;
+  if (age <= 3) return 2;
+  if (age <= 6) return 1;
+  return 0;
+}
+
+const CURRENT_YEAR = new Date().getFullYear();
+
 async function getSession(sessionId: string, userId: string) {
   const { data } = await supabaseAdmin
     .from('career_sessions')
@@ -40,10 +64,10 @@ async function getConversation(sessionId: string, nodeId: string, userId: string
   return data;
 }
 
-function scoreNode(node: Node, keywords: string[]): number {
+function scoreNode(node: Node, keywords: string[], currentYear = CURRENT_YEAR): number {
   const text = `${node.label} ${node.detail}`.toLowerCase();
   const hits = keywords.filter(kw => text.includes(kw)).length;
-  return hits * 2 + node.weight;
+  return hits * 2 + node.weight + getRecencyScore(node, currentYear);
 }
 
 function extractKeywords(text: string): string[] {
@@ -84,12 +108,18 @@ async function assembleGraphExtraction(input: AssemblerInput): Promise<PromptPac
   const task_prompt = `Extract a career graph from this resume. Return JSON matching:
 {
   "nodes": [{ "id": "snake_case", "type": "role|skill|project|outcome|decision",
-    "label": "2-4 words", "detail": "one sentence", "year": "YYYY or YYYY-YYYY or null",
+    "label": "2-4 words", "detail": "one sentence", "year": "YYYY or YYYY-YYYY or YYYY-Present or null",
     "weight": 1|2|3 }],
   "edges": [{ "source": "id", "target": "id",
     "relation": "USED|LED_TO|DEMONSTRATED|REQUIRED|INFLUENCED|BUILT_ON" }]
 }
-Weight: 3=career-defining (3-5 nodes), 2=important (6-10), 1=supporting.
+
+Weight assignment rules (recency matters):
+- Weight 3 (career-defining, 3-5 nodes): BOTH differentiating AND currently active or from the last 3 years. A node from 2015 should only be weight-3 if it is unmistakably foundational to who they are today — not just impressive at the time.
+- Weight 2 (important, 6-10 nodes): Strong contributions, formative experiences, skills actively in use. Recent nodes (last 5 years) get the benefit of the doubt at weight 2.
+- Weight 1 (supporting): Historical context, early career, skills not recently exercised, roles superseded by later work.
+Recency principle: a node from ${CURRENT_YEAR - 2}–present carries more forward-looking signal than an equivalent node from ${CURRENT_YEAR - 10}, even if the older node was more impactful at the time. Recent momentum predicts future trajectory.
+
 Extract 15-25 nodes total.
 
 Resume:
@@ -113,10 +143,17 @@ async function assembleInsightGeneration(input: AssemblerInput): Promise<PromptP
 
   const graph: CareerGraph = session.graph_data ?? { nodes: [], edges: [] };
 
-  // weight-3 as primary signal, top 6 weight-2 as support — no weight-1
-  const w3 = graph.nodes.filter(n => n.weight === 3);
-  const w2 = graph.nodes.filter(n => n.weight === 2).slice(0, 6);
-  const selected = [...w3, ...w2];
+  // weight-3 as primary signal, top 6 weight-2 as support — sorted recency-first within each tier
+  const byRecencyDesc = (a: Node, b: Node) =>
+    (parseEndYear(b.year) - parseEndYear(a.year)) || (b.weight - a.weight);
+
+  const w3 = graph.nodes.filter(n => n.weight === 3).sort(byRecencyDesc);
+  const w2 = graph.nodes.filter(n => n.weight === 2).sort(byRecencyDesc).slice(0, 6);
+  // Also pull in any weight-1 nodes from the last 2 years — recent work is signal even if not yet weight-2
+  const recentW1 = graph.nodes
+    .filter(n => n.weight === 1 && getRecencyScore(n, CURRENT_YEAR) >= 2)
+    .sort(byRecencyDesc).slice(0, 3);
+  const selected = [...w3, ...w2, ...recentW1];
   const selectedIds = new Set(selected.map(n => n.id));
 
   const relevantEdges = graph.edges.filter(
@@ -144,15 +181,18 @@ async function assembleBranchGeneration(input: AssemblerInput): Promise<PromptPa
   const answers: string[] = session.answers ?? [];
   const strength = session.insights?.strength;
 
-  // all nodes — label + type + weight only, NOT full detail
-  const nodeText = graph.nodes
-    .map(n => `${n.label} [${n.type}] w${n.weight}`)
+  // All nodes sorted recency-first within weight tier — label + type + weight + year
+  const sortedNodes = [...graph.nodes].sort(
+    (a, b) => (parseEndYear(b.year) - parseEndYear(a.year)) || (b.weight - a.weight)
+  );
+  const nodeText = sortedNodes
+    .map(n => `${n.label} [${n.type}] w${n.weight}${n.year ? ` (${n.year})` : ''}`)
     .join(', ');
 
   const system = `You are a career trajectory analyst. Surface non-obvious directions from rare node combinations — not the obvious next step.`;
 
   const user_context = [
-    `Nodes: ${nodeText}`,
+    `Nodes (sorted recent-first): ${nodeText}`,
     strength?.identity_reframe ? `Identity: ${strength.identity_reframe}.` : '',
     strength?.insight ? `Core strength: ${strength.insight.split('.')[0]}.` : '',
     answers[0] ? `Q1 (initiative): ${answers[0]}` : '',
@@ -162,7 +202,8 @@ async function assembleBranchGeneration(input: AssemblerInput): Promise<PromptPa
   const task_prompt = `Generate exactly 3 career direction branches. Return ONLY valid JSON:
 [{ "title": "2-4 words", "description": "one sentence — why it emerges from THEIR graph",
    "timeline": "6-18 months|1-2 years|2-3 years", "type": "immediate|emerging|nonobvious" }]
-Branch 1: most reachable. Branch 2: energizing. Branch 3: the one they haven't considered.`;
+Branch 1: most reachable given recent momentum. Branch 2: energizing and builds on what's active now. Branch 3: non-obvious — what recent patterns make possible that they haven't named yet.
+Recency rule: directions grounded in nodes from ${CURRENT_YEAR - 2}–present carry more weight than directions based only on historical experience.`;
 
   const est = tokens(system + user_context + task_prompt);
   return {
@@ -230,15 +271,17 @@ async function assembleFinalSynthesis(input: AssemblerInput): Promise<PromptPack
   const insights = session.insights ?? {};
   const branch = insights.branches?.[chosen_branch_index];
 
+  // Sort weight-2+ nodes recency-first so the portrait leads with current momentum
   const topNodes = graph.nodes
     .filter(n => n.weight >= 2)
+    .sort((a, b) => (parseEndYear(b.year) - parseEndYear(a.year)) || (b.weight - a.weight))
     .map(n => `[${n.type}] ${n.label} (w${n.weight})${n.year ? ` ${n.year}` : ''}: ${n.detail}`)
     .join('\n');
 
   const system = `You are writing a career portrait. Celebrate first. Be specific and grounded — only in what you've been given. Sound like a brilliant friend who has studied their entire career.`;
 
   const user_context = [
-    `Key career nodes:\n${topNodes}`,
+    `Key career nodes (sorted recent-first):\n${topNodes}`,
     insights.strength?.identity_reframe ? `Identity: ${insights.strength.identity_reframe}.` : '',
     insights.strength?.insight ? `Core strength: ${insights.strength.insight}` : '',
     branch ? `Chosen direction: ${branch.title} — ${branch.description}` : '',
@@ -246,11 +289,12 @@ async function assembleFinalSynthesis(input: AssemblerInput): Promise<PromptPack
   ].filter(Boolean).join('\n\n');
 
   const task_prompt = `Write a career portrait. Return ONLY valid JSON:
-{ "identity": "one sentence — who they are at their best professionally",
-  "celebration": "2-3 sentences — what is genuinely impressive, grounded in specific nodes",
-  "rare_factor": "one sentence — what makes this graph rare",
-  "next_action": "one concrete action toward their chosen direction",
-  "gap": "one honest gap — framed as opportunity, not deficit" }`;
+{ "identity": "one sentence — who they are at their best professionally (ground in RECENT work, not just historical achievements)",
+  "celebration": "2-3 sentences — what is genuinely impressive; lead with what they've done in the last 2-3 years, then connect to the through-line",
+  "rare_factor": "one sentence — what makes this graph rare RIGHT NOW, not just historically",
+  "next_action": "one concrete action toward their chosen direction, grounded in current momentum (recent nodes)",
+  "gap": "one honest gap — framed as opportunity, not deficit" }
+Recency rule: nodes from ${CURRENT_YEAR - 2}–present should anchor the celebration, rare_factor, and next_action. Historical nodes provide context but should not dominate.`;
 
   const topNodesList = graph.nodes.filter(n => n.weight >= 2);
   const est = tokens(system + user_context + task_prompt);
@@ -433,11 +477,12 @@ async function assembleCareerChat(input: AssemblerInput): Promise<PromptPackage>
   const careerSummary = buildCareerSummary(session);
   const graph: CareerGraph = session.graph_data ?? { nodes: [], edges: [] };
 
-  // Defining nodes as grounding anchors
+  // Defining nodes as grounding anchors — sorted recency-first
   const anchors = graph.nodes
     .filter(n => n.weight === 3)
+    .sort((a, b) => (parseEndYear(b.year) - parseEndYear(a.year)))
     .slice(0, 8)
-    .map(n => `${n.label} [${n.type}]: ${n.detail}`)
+    .map(n => `${n.label} [${n.type}]${n.year ? ` (${n.year})` : ''}: ${n.detail}`)
     .join('\n');
 
   const portrait  = session.insights?.portrait  as Record<string, string> | undefined;
@@ -460,7 +505,7 @@ async function assembleCareerChat(input: AssemblerInput): Promise<PromptPackage>
     ? recent.map(m => `${m.role === 'user' ? 'User' : 'Assistant'}: ${m.content}`).join('\n')
     : '';
 
-  const system = `You are a career intelligence assistant. The user has completed their career graph analysis. Answer their career questions with specificity — ground every answer in their actual graph data, portrait, and insights. Never give generic advice. Be direct, insightful, and concise (3-5 sentences unless more is clearly needed).`;
+  const system = `You are a career intelligence assistant. The user has completed their career graph analysis. Answer their career questions with specificity — ground every answer in their actual graph data, portrait, and insights. Never give generic advice. Be direct, insightful, and concise (3-5 sentences unless more is clearly needed). Recency rule: prioritize their recent experience (last 2-3 years) when giving advice — it signals current trajectory. Historical nodes inform context but should not overshadow what they're actively doing now.`;
 
   const user_context = [
     `Career summary: ${careerSummary}`,
