@@ -63,54 +63,36 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 .graph-area{flex:1;position:relative;overflow:hidden;}
 #graphSvgWrap{width:100%;height:100%;position:relative;}
 
-/* ── OUTCOME CARD STACK ── */
-.outcome-stack{
-  position:absolute;bottom:0;left:0;right:0;
-  display:flex;flex-direction:column;
-  z-index:15;pointer-events:none;
+/* ── INSIGHT TABS (right panel progressive reveal) ── */
+.insight-tab-bar{
+  display:flex;border-bottom:1px solid var(--border);
+  background:var(--surface);flex-shrink:0;overflow-x:auto;
 }
-.outcome-card{
-  pointer-events:all;
-  background:rgba(9,10,16,0.92);
-  backdrop-filter:blur(16px);
-  border-top:1px solid var(--card-color,var(--border2));
-  transform:translateY(100%);
-  transition:transform 0.5s cubic-bezier(0.16,1,0.3,1);
-  overflow:hidden;
-  max-height:280px;
+.insight-tab-bar::-webkit-scrollbar{height:0;}
+.insight-tab{
+  display:flex;align-items:center;gap:6px;
+  padding:9px 14px;background:none;border:none;
+  border-bottom:2px solid transparent;
+  font-family:'DM Mono',monospace;font-size:9px;
+  letter-spacing:0.1em;text-transform:uppercase;
+  color:var(--text2);cursor:pointer;
+  transition:all 0.15s;white-space:nowrap;flex-shrink:0;
 }
-.outcome-card.visible{transform:translateY(0);}
-.outcome-card.collapsed .oc-body{display:none;}
-.outcome-card.collapsed .oc-tab-chevron{transform:rotate(180deg);}
+.insight-tab:hover{color:var(--text);background:rgba(255,255,255,0.03);}
+.insight-tab.active{color:var(--text);border-bottom-color:var(--itab-color,var(--accent));}
+.itab-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0;}
 
-/* Tab row */
-.oc-tab{
-  display:flex;align-items:center;gap:8px;
-  padding:8px 18px;cursor:pointer;
-  border-bottom:1px solid rgba(255,255,255,0.04);
-  transition:background 0.15s;
-  user-select:none;
+/* Insight panes */
+.insight-pane{
+  flex:1;overflow-y:auto;padding:20px;
+  animation:msgIn 0.3s ease forwards;
 }
-.oc-tab:hover{background:rgba(255,255,255,0.03);}
-.oc-tab-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;}
-.oc-tab-label{
-  font-family:'DM Mono',monospace;font-size:9px;letter-spacing:0.12em;
-  text-transform:uppercase;color:var(--text2);flex:1;
-}
-.oc-tab-chevron{
-  font-size:11px;color:var(--text3);
-  transition:transform 0.3s;
-  font-family:'DM Mono',monospace;
-}
+.insight-pane::-webkit-scrollbar{width:3px;}
+.insight-pane::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px;}
 
-/* Body */
-.oc-body{
-  padding:16px 20px 18px;
-  overflow-y:auto;
-  max-height:220px;
-}
-.oc-body::-webkit-scrollbar{width:3px;}
-.oc-body::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px;}
+/* Minimized panel hides tabs & panes */
+.conv-minimized .insight-tab-bar{display:none!important;}
+.conv-minimized .insight-pane{display:none!important;}
 
 /* Strength card content */
 .oc-text{
@@ -423,8 +405,8 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 .node-chat-send:disabled{opacity:0.4;}
 
 /* ── GRAPH SEARCH ── */
-.graph-search-bar{padding:7px 18px;border-bottom:1px solid var(--border);
-  display:flex;align-items:center;gap:8px;flex-shrink:0;background:var(--surface);}
+.graph-search-bar{padding:7px 18px;border-bottom:1px solid var(--border2);
+  display:flex;align-items:center;gap:8px;flex-shrink:0;background:var(--surface2);}
 .graph-search-icon{font-family:'DM Mono',monospace;font-size:12px;color:var(--text3);flex-shrink:0;line-height:1;}
 .graph-search-inp{flex:1;background:transparent;border:none;color:var(--text);
   font-family:'DM Mono',monospace;font-size:10px;padding:2px 0;outline:none;letter-spacing:0.02em;min-width:0;}
@@ -566,42 +548,6 @@ svg .node-g:active{cursor:grabbing;}
       </div>
       <div class="ntip" id="ntip"></div>
 
-      <!-- ── PERSISTENT OUTCOME CARD STACK ── -->
-      <div class="outcome-stack" id="outcomeStack">
-
-        <!-- LAYER 1: Strength -->
-        <div class="outcome-card" id="cardStrength" style="--card-color:#e8a640;display:none;">
-          <div class="oc-tab" onclick="toggleCard('cardStrength')">
-            <span class="oc-tab-dot" style="background:#e8a640"></span>
-            <span class="oc-tab-label">Core Strength</span>
-            <span class="oc-tab-chevron" id="chevStrength">↑</span>
-          </div>
-          <div class="oc-body" id="bodyStrength">
-            <div class="oc-text" id="insightText"></div>
-          </div>
-        </div>
-
-        <!-- LAYER 2: Career Directions -->
-        <div class="outcome-card" id="cardDirections" style="--card-color:#3b82f6;display:none;">
-          <div class="oc-tab" onclick="toggleCard('cardDirections')">
-            <span class="oc-tab-dot" style="background:#3b82f6"></span>
-            <span class="oc-tab-label">Career Directions</span>
-            <span class="oc-tab-chevron" id="chevDirections">↑</span>
-          </div>
-          <div class="oc-body" id="bodyDirections"></div>
-        </div>
-
-        <!-- LAYER 3: Career Portrait -->
-        <div class="outcome-card" id="cardPortrait" style="--card-color:#10b981;display:none;">
-          <div class="oc-tab" onclick="toggleCard('cardPortrait')">
-            <span class="oc-tab-dot" style="background:#10b981"></span>
-            <span class="oc-tab-label">Career Portrait</span>
-            <span class="oc-tab-chevron" id="chevPortrait">↑</span>
-          </div>
-          <div class="oc-body" id="bodyPortrait"></div>
-        </div>
-
-      </div>
     </div>
     <!-- NODE DETAIL PANEL -->
     <div class="node-panel" id="nodePanel">
@@ -655,6 +601,36 @@ svg .node-g:active{cursor:grabbing;}
         <button class="conv-minimize-btn" id="convMinimizeBtn" onclick="toggleConvPanel()" title="Minimize panel">›</button>
       </div>
     </div>
+    <!-- ── INSIGHT TABS (progressive reveal) ── -->
+    <div class="insight-tab-bar" id="insightTabBar" style="display:none;">
+      <button class="insight-tab" id="itab-strength"
+        style="--itab-color:#e8a640;display:none;"
+        onclick="switchInsightTab('strength')">
+        <span class="itab-dot" style="background:#e8a640"></span>Core Strength
+      </button>
+      <button class="insight-tab" id="itab-directions"
+        style="--itab-color:#3b82f6;display:none;"
+        onclick="switchInsightTab('directions')">
+        <span class="itab-dot" style="background:#3b82f6"></span>Career Directions
+      </button>
+      <button class="insight-tab" id="itab-portrait"
+        style="--itab-color:#10b981;display:none;"
+        onclick="switchInsightTab('portrait')">
+        <span class="itab-dot" style="background:#10b981"></span>Career Portrait
+      </button>
+    </div>
+
+    <!-- ── INSIGHT PANES (one shown at a time) ── -->
+    <div class="insight-pane" id="ipane-strength" style="display:none;">
+      <div class="oc-text" id="insightText"></div>
+    </div>
+    <div class="insight-pane" id="ipane-directions" style="display:none;">
+      <div id="bodyDirections"></div>
+    </div>
+    <div class="insight-pane" id="ipane-portrait" style="display:none;">
+      <div id="bodyPortrait"></div>
+    </div>
+
     <div class="conv-scroll" id="convScroll">
 
       <!-- Start screen -->
@@ -968,11 +944,13 @@ const QUESTIONS = [
 
 // ── SESSION STATE — isolated per user ──
 const STORAGE_KEY = 'career_os_sessions_v1';
+// Bump this when HTML structure changes significantly — forces stale convHTML to be discarded
+const CONV_HTML_VERSION = 2;
 
 // What gets persisted (excludes DOM elements: svgNodeEls, svgEdgeEls)
 const PERSIST_FIELDS = [
   'session_id','graphData','answers','enrichCount','step','nodePositions',
-  'nodeChatHistory','convHTML','scrollTop','cardStates','branches','selectedBranch',
+  'nodeChatHistory','convHTML','convHTMLVersion','scrollTop','cardStates','branches','selectedBranch',
   'careerChatHistory'
 ];
 
@@ -991,13 +969,14 @@ function saveSessions() {
     const scroll = document.getElementById('convScroll');
     if (scroll && S().step >= 1) {
       S().convHTML = scroll.innerHTML;
+      S().convHTMLVersion = CONV_HTML_VERSION;
       S().scrollTop = scroll.scrollTop;
     }
-    // Save card states
+    // Save insight tab states (tab visible = button has been revealed; active = pane showing)
     S().cardStates = {
-      strength: { visible: !document.getElementById('cardStrength')?.classList.contains('collapsed') && document.getElementById('cardStrength')?.style.display !== 'none', html: document.getElementById('insightText')?.innerHTML||'' },
-      directions: { visible: !document.getElementById('cardDirections')?.classList.contains('collapsed') && document.getElementById('cardDirections')?.style.display !== 'none', html: document.getElementById('bodyDirections')?.innerHTML||'' },
-      portrait: { visible: !document.getElementById('cardPortrait')?.classList.contains('collapsed') && document.getElementById('cardPortrait')?.style.display !== 'none', html: document.getElementById('bodyPortrait')?.innerHTML||'' }
+      strength:   { visible: document.getElementById('itab-strength')?.style.display   !== 'none', active: document.getElementById('ipane-strength')?.style.display   !== 'none', html: document.getElementById('insightText')?.innerHTML   || '' },
+      directions: { visible: document.getElementById('itab-directions')?.style.display !== 'none', active: document.getElementById('ipane-directions')?.style.display !== 'none', html: document.getElementById('bodyDirections')?.innerHTML || '' },
+      portrait:   { visible: document.getElementById('itab-portrait')?.style.display   !== 'none', active: document.getElementById('ipane-portrait')?.style.display   !== 'none', html: document.getElementById('bodyPortrait')?.innerHTML   || '' }
     };
     // Also save current node positions from live SVG
     Object.keys(S().svgNodeEls).forEach(id => {
@@ -1107,7 +1086,7 @@ function switchSession(id) {
 function restoreSession() {
   const scroll = document.getElementById('convScroll');
 
-  if (S().convHTML) {
+  if (S().convHTML && S().convHTMLVersion === CONV_HTML_VERSION) {
     // Full conversation saved — restore it (start screen is inside it, hidden via style)
     scroll.innerHTML = S().convHTML;
     setTimeout(() => scroll.scrollTop = S().scrollTop || 0, 50);
@@ -1116,12 +1095,13 @@ function restoreSession() {
     if (S().step >= 1) {
       const ss = document.getElementById('startScreen');
       if (ss && ss.style.display !== 'none') {
-        S().convHTML = null; // clear the bad saved state
+        S().convHTML = null;
         scroll.innerHTML = buildRestoredConvHTML();
       }
     }
   } else if (S().step >= 1) {
-    // Returning user on new browser / cleared localStorage — show welcome-back panel
+    // convHTML missing or from an old version — show welcome-back panel
+    S().convHTML = null;
     scroll.innerHTML = buildRestoredConvHTML();
   } else {
     // Brand-new session — show the start screen (or put it back if it was cleared)
@@ -1134,12 +1114,16 @@ function restoreSession() {
     return;
   }
 
-  // Restore card states
+  // Restore insight tabs
   const cs = S().cardStates;
   if (cs) {
-    if (cs.strength?.html) { document.getElementById('insightText').innerHTML = cs.strength.html; showCard('cardStrength', false); if (!cs.strength.visible) collapseCard('cardStrength'); }
-    if (cs.directions?.html) { document.getElementById('bodyDirections').innerHTML = cs.directions.html; showCard('cardDirections', false); if (!cs.directions.visible) collapseCard('cardDirections'); }
-    if (cs.portrait?.html) { document.getElementById('bodyPortrait').innerHTML = cs.portrait.html; showCard('cardPortrait', false); if (!cs.portrait.visible) collapseCard('cardPortrait'); }
+    // Reveal tabs for any insight that has content, then restore active state
+    if (cs.strength?.html)   { document.getElementById('insightText').innerHTML    = cs.strength.html;   showCard('cardStrength',   false); if (!cs.strength.active)   collapseCard('cardStrength'); }
+    if (cs.directions?.html) { document.getElementById('bodyDirections').innerHTML = cs.directions.html; showCard('cardDirections', false); if (!cs.directions.active) collapseCard('cardDirections'); }
+    if (cs.portrait?.html)   { document.getElementById('bodyPortrait').innerHTML   = cs.portrait.html;   showCard('cardPortrait',   false); if (!cs.portrait.active)   collapseCard('cardPortrait'); }
+    // If no pane is active, make sure conv-scroll is visible
+    const anyActive = ['strength','directions','portrait'].some(k => document.getElementById('ipane-'+k)?.style.display !== 'none');
+    if (!anyActive) document.getElementById('convScroll').style.display = '';
   }
 
   closeNodePanel();
@@ -1489,9 +1473,12 @@ async function showBranches() {
 
     collapseCard('cardStrength');
     await sleep(200);
-    showCard('cardDirections');
+    showCard('cardDirections'); // user sees directions pane briefly
 
-    addMsg('system', `Three career directions are now pinned to your graph — tap any one to select it.`);
+    await sleep(700); // let user scan the three directions
+    collapseCard('cardDirections'); // return to conv-scroll for Q&A
+
+    addMsg('system', `Three career directions are ready — tap the <strong>Career Directions</strong> tab any time to review them. Now pick the one that feels most alive.`);
 
     setProgress(75);
     setStep(4);
@@ -1517,6 +1504,8 @@ function selectBranchCard(idx) {
     c.className = 'dir-card' + (i===idx?' selected':'');
   });
   saveDebounced(500);
+  // Return to conv-scroll so user can see and answer the follow-up question
+  collapseCard('cardDirections');
 }
 
 // After Q3 and Q4, show final reveal
@@ -1558,7 +1547,7 @@ async function showFinalReveal() {
     await sleep(200);
     showCard('cardPortrait');
 
-    addMsg('system', `Your career portrait is ready — pinned to the graph panel above.`);
+    addMsg('system', `Your career portrait is ready — see the Career Portrait tab above.`);
     setProgress(100);
     saveSessions();
 
@@ -1692,6 +1681,8 @@ function buildNextStepsPillsHTML() {
 }
 
 function showNextSteps() {
+  // Return to conv-scroll view (portrait tab stays accessible via tab bar)
+  collapseCard('cardPortrait');
   const scroll = document.getElementById('convScroll');
   const sec = document.createElement('div');
   sec.id = 'nextStepsSection';
@@ -2029,6 +2020,17 @@ async function sendCareerChat(forcedMsg) {
   }
   send.disabled = true;
 
+  // Ensure conv-scroll is visible when chatting (close any open insight pane)
+  ['strength','directions','portrait'].forEach(k => {
+    const p = document.getElementById('ipane-' + k);
+    const t = document.getElementById('itab-' + k);
+    if (p && p.style.display !== 'none') {
+      p.style.display = 'none';
+      if (t) t.classList.remove('active');
+    }
+  });
+  document.getElementById('convScroll').style.display = '';
+
   addMsg('user', msg);
 
   // Persist history in session state (last 20 turns)
@@ -2066,48 +2068,84 @@ function toggleConvPanel() {
   btn.title = minimized ? 'Expand panel' : 'Minimize panel';
 }
 
-function showCard(cardId, animate=true) {
-  const card = document.getElementById(cardId);
-  if (!card) return;
-  card.style.display = 'block';
-  card.classList.remove('collapsed');
-  if (animate) {
-    requestAnimationFrame(() => card.classList.add('visible'));
-  } else {
-    card.classList.add('visible');
-  }
-  const chevId = 'chev' + cardId.replace('card','');
-  const chev = document.getElementById(chevId);
-  if (chev) chev.textContent = '↑';
+// ── INSIGHT TAB SYSTEM ──
+// Maps legacy cardId strings → tab key used in the new right-panel tab design
+const _INSIGHT_KEY = { cardStrength:'strength', cardDirections:'directions', cardPortrait:'portrait' };
+
+function _activateInsightTab(key) {
+  // Deactivate all panes first
+  ['strength','directions','portrait'].forEach(k => {
+    const p = document.getElementById('ipane-' + k);
+    const t = document.getElementById('itab-' + k);
+    if (p) p.style.display = 'none';
+    if (t) t.classList.remove('active');
+  });
+  // Hide conv-scroll while a pane is shown
+  const scroll = document.getElementById('convScroll');
+  if (scroll) scroll.style.display = 'none';
+  // Activate requested pane + tab
+  const pane = document.getElementById('ipane-' + key);
+  const tab  = document.getElementById('itab-' + key);
+  if (pane) pane.style.display = '';
+  if (tab)  tab.classList.add('active');
 }
 
+function _deactivateInsightTab(key) {
+  const pane = document.getElementById('ipane-' + key);
+  const tab  = document.getElementById('itab-'  + key);
+  if (pane) pane.style.display = 'none';
+  if (tab)  tab.classList.remove('active');
+  // Restore conv-scroll
+  const scroll = document.getElementById('convScroll');
+  if (scroll) scroll.style.display = '';
+}
+
+// Reveal tab button + switch to it (called when insight data first arrives)
+function showCard(cardId, _animate=true) {
+  const key = _INSIGHT_KEY[cardId];
+  if (!key) return;
+  const tab = document.getElementById('itab-' + key);
+  if (tab) tab.style.display = '';
+  const bar = document.getElementById('insightTabBar');
+  if (bar) bar.style.display = '';
+  _activateInsightTab(key);
+}
+
+// Deactivate pane, return to conv-scroll (called before showing the next insight)
 function collapseCard(cardId) {
-  const card = document.getElementById(cardId);
-  if (!card) return;
-  card.classList.add('collapsed');
-  const chevId = 'chev' + cardId.replace('card','');
-  const chev = document.getElementById(chevId);
-  if (chev) chev.textContent = '↓';
+  const key = _INSIGHT_KEY[cardId];
+  if (!key) return;
+  _deactivateInsightTab(key);
 }
 
-function toggleCard(cardId) {
-  const card = document.getElementById(cardId);
-  if (!card) return;
-  if (card.classList.contains('collapsed')) {
-    card.classList.remove('collapsed');
-    const chevId = 'chev' + cardId.replace('card','');
-    const chev = document.getElementById(chevId);
-    if (chev) chev.textContent = '↑';
+// Tab click — toggle between pane and conv-scroll
+function switchInsightTab(key) {
+  const pane = document.getElementById('ipane-' + key);
+  if (pane && pane.style.display !== 'none') {
+    _deactivateInsightTab(key);
   } else {
-    collapseCard(cardId);
+    _activateInsightTab(key);
+  }
+  saveDebounced(300);
+}
+
+// Legacy compat — used by save/restore logic
+function toggleCard(cardId) {
+  const key = _INSIGHT_KEY[cardId];
+  if (!key) return;
+  const pane = document.getElementById('ipane-' + key);
+  if (pane && pane.style.display !== 'none') {
+    _deactivateInsightTab(key);
+  } else {
+    _activateInsightTab(key);
   }
   saveDebounced(500);
 }
 
-// ── INSIGHT TYPEWRITER (writes into card) ──
+// ── INSIGHT TYPEWRITER (writes into strength pane, then collapses to resume Q&A) ──
 async function typeInsight(html) {
   const textEl = document.getElementById('insightText');
-  showCard('cardStrength');
+  showCard('cardStrength'); // activate pane (conv-scroll hides temporarily)
 
   const plain = html.replace(/<[^>]+>/g, '');
   textEl.innerHTML = '<span class="insight-cursor"></span>';
@@ -2126,6 +2164,9 @@ async function typeInsight(html) {
     }, 22);
   });
   saveDebounced(500);
+  // Brief pause so user reads the insight, then return to conv-scroll for Q&A
+  await sleep(900);
+  collapseCard('cardStrength');
 }
 
 // ── GRAPH RENDER ──
