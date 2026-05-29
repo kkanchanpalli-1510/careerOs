@@ -502,16 +502,10 @@ svg .node-g:active{cursor:grabbing;}
     <div class="graph-panel-hdr">
       <div class="panel-label">Knowledge Graph</div>
       <div style="display:flex;align-items:center;gap:8px;">
-        <!-- Session switcher -->
-        <div style="display:flex;border:1px solid var(--border2);border-radius:4px;overflow:hidden;">
-          <button id="sessionBtnA" onclick="switchSession('A')" style="
-            font-family:'DM Mono',monospace;font-size:8px;letter-spacing:0.08em;text-transform:uppercase;
-            padding:3px 10px;border:none;cursor:pointer;transition:all 0.2s;
-            background:var(--accent);color:var(--bg);">You</button>
-          <button id="sessionBtnB" onclick="switchSession('B')" style="
-            font-family:'DM Mono',monospace;font-size:8px;letter-spacing:0.08em;text-transform:uppercase;
-            padding:3px 10px;border:none;border-left:1px solid var(--border2);cursor:pointer;transition:all 0.2s;
-            background:var(--surface2);color:var(--text2);">Partner</button>
+        <!-- Session switcher (hidden — managed programmatically) -->
+        <div style="display:none;">
+          <button id="sessionBtnA" onclick="switchSession('A')"></button>
+          <button id="sessionBtnB" onclick="switchSession('B')"></button>
         </div>
         <div class="graph-stage-pills">
           <div class="stage-pill" id="pill1">Extract</div>
@@ -692,13 +686,15 @@ svg .node-g:active{cursor:grabbing;}
     <input type="email" id="authEmail"
       style="width:100%;background:#141622;border:1px solid #232840;color:#d0daf0;font-family:'DM Mono',monospace;font-size:12px;padding:10px 14px;border-radius:6px;outline:none;transition:border-color 0.2s;margin-bottom:14px;box-sizing:border-box;"
       placeholder="you@company.com"
-      onfocus="this.style.borderColor='#e8a640'" onblur="this.style.borderColor='#232840'">
+      onfocus="this.style.borderColor='#e8a640'" onblur="this.style.borderColor='#232840'"
+      onkeydown="if(event.key==='Enter'){event.preventDefault();document.getElementById('authPassword').focus();}">
 
     <label style="font-family:'DM Mono',monospace;font-size:9px;color:#6b7fa3;letter-spacing:0.1em;text-transform:uppercase;display:block;margin-bottom:6px;">Password <span style="color:#3a4460;font-size:8px;">(min 6 characters)</span></label>
     <input type="password" id="authPassword"
       style="width:100%;background:#141622;border:1px solid #232840;color:#d0daf0;font-family:'DM Mono',monospace;font-size:12px;padding:10px 14px;border-radius:6px;outline:none;transition:border-color 0.2s;margin-bottom:18px;box-sizing:border-box;"
       placeholder="••••••••"
-      onfocus="this.style.borderColor='#e8a640'" onblur="this.style.borderColor='#232840'">
+      onfocus="this.style.borderColor='#e8a640'" onblur="this.style.borderColor='#232840'"
+      onkeydown="if(event.key==='Enter'){event.preventDefault();doSignIn();}">
 
     <!-- Two always-visible buttons -->
     <div style="display:flex;gap:10px;margin-bottom:12px;">
@@ -1086,12 +1082,18 @@ function switchSession(id) {
 function restoreSession() {
   const scroll = document.getElementById('convScroll');
 
-  if (S().convHTML && S().convHTMLVersion === CONV_HTML_VERSION) {
-    // Full conversation saved — restore it (start screen is inside it, hidden via style)
+  // Version check only applies to COMPLETE sessions (portrait done).
+  // Mid-flow sessions always restore convHTML so Q&A questions are preserved.
+  const _isCompleteSession = !!(S().cardStates?.portrait?.html);
+  const _convHTMLUsable = S().convHTML &&
+    (!_isCompleteSession || S().convHTMLVersion === CONV_HTML_VERSION);
+
+  if (_convHTMLUsable) {
+    // Full conversation saved — restore it
     scroll.innerHTML = S().convHTML;
     setTimeout(() => scroll.scrollTop = S().scrollTop || 0, 50);
     // Guard: if the saved HTML has a VISIBLE start screen but the session is underway,
-    // the convHTML is stale/corrupt (captured before the step-guard fix). Override it.
+    // the convHTML is stale/corrupt. Override it.
     if (S().step >= 1) {
       const ss = document.getElementById('startScreen');
       if (ss && ss.style.display !== 'none') {
@@ -1100,7 +1102,7 @@ function restoreSession() {
       }
     }
   } else if (S().step >= 1) {
-    // convHTML missing or from an old version — show welcome-back panel
+    // No usable convHTML — show welcome-back panel
     S().convHTML = null;
     scroll.innerHTML = buildRestoredConvHTML();
   } else {
@@ -2806,15 +2808,48 @@ document.addEventListener('DOMContentLoaded', () => {
   });
   window.addEventListener('beforeunload', saveSessions);
 
-  // Listen for auth state changes — cache token immediately, no getSession() needed
+  // Guard: prevent onAuthenticated from running twice (e.g. INITIAL_SESSION + TOKEN_REFRESHED)
+  let _authResolved = false;
+
+  // Proactive session check — fires immediately from localStorage, no network needed for valid tokens
+  supabaseClient.auth.getSession().then(({ data: { session } }) => {
+    if (session && !_authResolved) {
+      _authToken = session.access_token;
+      _authResolved = true;
+      onAuthenticated(session.user);
+    }
+  }).catch(e => console.warn('[career-os] getSession probe:', e));
+
   supabaseClient.auth.onAuthStateChange(async (event, session) => {
     _authToken = session?.access_token || null;
     console.log('[career-os] onAuthStateChange:', event, _authToken ? 'token cached' : 'no token');
+
     if (session) {
-      await onAuthenticated(session.user);
-    } else {
+      if (!_authResolved) {
+        _authResolved = true;
+        await onAuthenticated(session.user);
+      }
+      // TOKEN_REFRESHED with a valid session — token already updated above, no re-init needed
+    } else if (event === 'SIGNED_OUT') {
+      _authResolved = false;
       showAuthOverlay();
+    } else if (event === 'INITIAL_SESSION') {
+      // No active session. If there's a stored session key in localStorage, Supabase
+      // may still be refreshing the token — wait briefly before showing the login screen.
+      try {
+        const storageKey = `sb-${SUPABASE_URL.split('//')[1].split('.')[0]}-auth-token`;
+        if (localStorage.getItem(storageKey)) {
+          // Stored session exists — hide overlay and give the refresh a moment to complete
+          document.getElementById('authOverlay').style.display = 'none';
+          setTimeout(() => { if (!_authToken) showAuthOverlay(); }, 3000);
+        } else {
+          showAuthOverlay(); // No stored session at all — show login immediately
+        }
+      } catch(e) {
+        showAuthOverlay();
+      }
     }
+    // Other null-session events (transient): don't touch the UI
   });
 });
 
