@@ -1,5 +1,5 @@
 export type NodeType = 'role' | 'skill' | 'project' | 'outcome' | 'decision';
-export type RelationType = 'USED' | 'LED_TO' | 'DEMONSTRATED' | 'REQUIRED' | 'INFLUENCED' | 'BUILT_ON';
+export type RelationType = 'USED' | 'LED_TO' | 'DEMONSTRATED' | 'REQUIRED' | 'INFLUENCED' | 'BUILT_ON' | 'VARIANT_OF';
 export type TaskType =
   | 'graph_extraction'
   | 'insight_generation'

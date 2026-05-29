@@ -73,6 +73,12 @@ If there is a single capability or instinct that appears in every role across th
 Frame: "Across every role you have held, the constant is..."
 Example signal: the same skill or decision type appearing with BUILT_ON or DEMONSTRATED edges across 3+ role nodes.
 
+Pattern 5 — THE MULTI-LENS OPERATOR
+If the graph contains VARIANT_OF edges — two projection nodes connected by VARIANT_OF from the same experience — the person operates with fundamentally different professional identities from the same raw material. This is rare.
+Name both lenses explicitly and explain that having both is the differentiator, not either one alone.
+Frame: "Most people who [lens A] cannot also [lens B]. You do both — from the same work."
+Example signal: a project or role node with two VARIANT_OF-linked peers, each with their own distinct downstream skill/outcome edges pointing into different domains.
+
 RECENCY PRINCIPLE:
 The insight must reflect who this person IS NOW and IS BECOMING — not just who they were.
 - Nodes with recent years (last 2-3 years) are leading indicators; treat them as more signal-rich than older nodes with the same weight

@@ -111,8 +111,11 @@ async function assembleGraphExtraction(input: AssemblerInput): Promise<PromptPac
     "label": "2-4 words", "detail": "one sentence", "year": "YYYY or YYYY-YYYY or YYYY-Present or null",
     "weight": 1|2|3 }],
   "edges": [{ "source": "id", "target": "id",
-    "relation": "USED|LED_TO|DEMONSTRATED|REQUIRED|INFLUENCED|BUILT_ON" }]
+    "relation": "USED|LED_TO|DEMONSTRATED|REQUIRED|INFLUENCED|BUILT_ON|VARIANT_OF" }]
 }
+
+VARIANT_OF rule (important):
+When a single experience or project contributed to the career in two genuinely distinct ways — for example, both as a technical engineering achievement AND as a product thinking exercise — create TWO separate projection nodes and link them with VARIANT_OF. Each projection node captures one lens (technical, product, leadership, operational, etc.) and connects independently to its own skills/outcomes. Do NOT collapse two distinct identity contributions into one node. VARIANT_OF connects peer projections — not a parent to a child. Use it sparingly: only when the two lenses are meaningfully different and would appeal to different audiences.
 
 Weight assignment rules (recency matters):
 - Weight 3 (career-defining, 3-5 nodes): BOTH differentiating AND currently active or from the last 3 years. A node from 2015 should only be weight-3 if it is unmistakably foundational to who they are today — not just impressive at the time.
@@ -244,8 +247,10 @@ Answer: "${answer}"
 Extract 1-2 new nodes. Return ONLY valid JSON:
 { "nodes": [{ "id": "snake_case", "type": "role|skill|project|outcome|decision",
   "label": "2-4 words", "detail": "one sentence", "year": null, "weight": 1|2|3 }],
-  "edges": [{ "source": "new_id", "target": "existing_node_id",
-    "relation": "USED|LED_TO|DEMONSTRATED|REQUIRED|INFLUENCED|BUILT_ON" }] }
+  "edges": [{ "source": "new_id_or_existing_id", "target": "existing_node_id_or_new_id",
+    "relation": "USED|LED_TO|DEMONSTRATED|REQUIRED|INFLUENCED|BUILT_ON|VARIANT_OF" }] }
+
+VARIANT_OF guidance: if the answer reveals that an existing experience has a second distinct lens (e.g., you already have a technical node for a project and the answer reveals strong product thinking from the same project), create a NEW projection node for that lens and connect the two with VARIANT_OF — do NOT overwrite the existing node. Each VARIANT_OF peer connects independently to its own skill/outcome nodes.
 If nothing new, return { "nodes": [], "edges": [] }.`;
 
   const est = tokens(system + user_context + task_prompt);
