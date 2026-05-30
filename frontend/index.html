@@ -460,15 +460,44 @@ svg .node-g:active{cursor:grabbing;}
 .proj-bridge{font-size:12px;color:var(--text2);line-height:1.7;margin-top:12px;
   padding-top:12px;border-top:1px solid var(--border);font-style:italic;}
 
-/* pdf download */
-.pdf-dl-btn{display:inline-flex;align-items:center;gap:7px;margin-top:2px;
+/* pdf download & version management */
+.pdf-save-row{display:flex;gap:8px;align-items:stretch;margin-top:2px;}
+.pdf-name-input{flex:1;background:var(--surface2);border:1px solid var(--border2);
+  color:var(--text);font-family:'DM Mono',monospace;font-size:10px;
+  padding:7px 12px;border-radius:6px;outline:none;transition:border-color 0.2s;
+  min-width:0;}
+.pdf-name-input:focus{border-color:var(--accent);}
+.pdf-dl-btn{display:inline-flex;align-items:center;gap:7px;flex-shrink:0;
   font-family:'DM Mono',monospace;font-size:10px;letter-spacing:0.06em;
   background:rgba(232,166,64,0.1);border:1px solid rgba(232,166,64,0.4);
-  color:var(--accent);padding:8px 18px;border-radius:6px;cursor:pointer;
-  transition:all 0.2s;}
+  color:var(--accent);padding:7px 16px;border-radius:6px;cursor:pointer;
+  transition:all 0.2s;white-space:nowrap;}
 .pdf-dl-btn:hover:not(:disabled){background:rgba(232,166,64,0.18);border-color:var(--accent);}
 .pdf-dl-btn:disabled{cursor:default;opacity:0.75;}
 .pdf-dl-note{font-size:9.5px;color:var(--text3);margin-top:6px;font-style:italic;}
+/* saved versions list */
+.rv-header{font-family:'DM Mono',monospace;font-size:8px;color:var(--accent);
+  letter-spacing:0.12em;text-transform:uppercase;margin:16px 0 8px;}
+.rv-list{display:flex;flex-direction:column;gap:4px;}
+.rv-row{display:flex;align-items:center;gap:8px;padding:8px 10px;
+  background:var(--surface2);border:1px solid var(--border);border-radius:6px;
+  transition:border-color 0.15s;}
+.rv-row:hover{border-color:var(--border2);}
+.rv-name{flex:1;font-size:11px;color:var(--text);cursor:pointer;min-width:0;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  border-bottom:1px dashed transparent;transition:border-color 0.15s;}
+.rv-name:hover{border-bottom-color:var(--accent);color:var(--accent);}
+.rv-date{font-family:'DM Mono',monospace;font-size:8.5px;color:var(--text3);
+  white-space:nowrap;flex-shrink:0;}
+.rv-dl,.rv-del{flex-shrink:0;background:none;border:1px solid var(--border2);
+  color:var(--text2);font-size:10px;padding:3px 7px;border-radius:4px;
+  cursor:pointer;transition:all 0.15s;font-family:'DM Mono',monospace;}
+.rv-dl:hover:not(:disabled){border-color:var(--accent);color:var(--accent);}
+.rv-del:hover{border-color:var(--node-decision);color:var(--node-decision);}
+.rv-dl:disabled{opacity:0.5;cursor:default;}
+.rv-rename-input{flex:1;background:var(--bg);border:1px solid var(--accent);
+  color:var(--text);font-family:'DM Mono',monospace;font-size:11px;
+  padding:2px 6px;border-radius:4px;outline:none;min-width:0;}
 
 /* inline action inputs */
 .inline-input-wrap{margin:12px 0 4px;}
@@ -1866,11 +1895,18 @@ async function submitResumePrep() {
     // Download PDF button
     const dlWrap = document.createElement('div');
     dlWrap.style.cssText = 'margin:12px 0 4px;';
-    dlWrap.innerHTML = `<button class="pdf-dl-btn" id="pdfDlBtn" onclick="downloadResumePDF(this)">
-      <span style="font-size:13px;">↓</span> Download Resume PDF
-    </button>
-    <div class="pdf-dl-note">Fill in your name and contact details before sending — everything else is ready.</div>`;
+    const defaultName = 'Resume — ' + new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    dlWrap.innerHTML = `
+      <div class="pdf-save-row">
+        <input class="pdf-name-input" id="pdfNameInput" type="text" value="${defaultName}" placeholder="Name this version…" maxlength="80">
+        <button class="pdf-dl-btn" id="pdfDlBtn" onclick="downloadResumePDF(this)">
+          <span style="font-size:13px;">↓</span> Save & Download
+        </button>
+      </div>
+      <div class="pdf-dl-note">Fill in your name and contact details before sending — everything else is ready.</div>
+      <div id="savedVersionsPanel"></div>`;
     scroll.appendChild(dlWrap);
+    loadSavedVersions(dlWrap.querySelector('#savedVersionsPanel'));
 
     // Follow-up pill: prep the interview
     const followUp = document.createElement('div');
@@ -1894,16 +1930,18 @@ async function submitResumePrep() {
 // ── PDF download ──────────────────────────────────────────────
 
 async function downloadResumePDF(btn) {
+  const nameEl = document.getElementById('pdfNameInput');
+  const versionName = nameEl?.value.trim() || ('Resume — ' + new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }));
   const orig = btn.innerHTML;
   btn.disabled = true;
-  btn.innerHTML = '<span style="opacity:0.7">Generating PDF…</span>';
+  btn.innerHTML = '<span style="opacity:0.7">Generating…</span>';
   try {
     const token = _getToken();
     if (!token) throw new Error('Not authenticated');
     const res = await fetch(`${BACKEND_URL}/api/v1/pdf/resume`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-      body: JSON.stringify({ session_id: S().session_id }),
+      body: JSON.stringify({ session_id: S().session_id, name: versionName }),
     });
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
@@ -1913,19 +1951,136 @@ async function downloadResumePDF(btn) {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = 'career-os-resume.pdf';
+    a.download = `${versionName}.pdf`;
     document.body.appendChild(a);
     a.click();
     setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 2000);
-    btn.innerHTML = '✓ Downloaded';
+    btn.innerHTML = '✓ Saved';
     btn.style.background = 'rgba(16,185,129,0.12)';
     btn.style.borderColor = 'var(--green)';
     btn.style.color = 'var(--green)';
+    // Refresh saved versions panel
+    const panel = btn.closest('[id]')?.querySelector?.('#savedVersionsPanel')
+      || document.getElementById('savedVersionsPanel');
+    if (panel) loadSavedVersions(panel);
+    // Allow re-download after short delay
+    setTimeout(() => {
+      btn.disabled = false;
+      btn.innerHTML = orig;
+      btn.style.background = ''; btn.style.borderColor = ''; btn.style.color = '';
+    }, 3000);
   } catch(e) {
     btn.disabled = false;
     btn.innerHTML = orig;
     addMsg('system', `<span style="color:var(--node-decision)">PDF error: ${e.message}</span>`);
   }
+}
+
+async function downloadVersionById(id, btn) {
+  const orig = btn.innerHTML;
+  btn.disabled = true;
+  btn.innerHTML = '…';
+  try {
+    const token = _getToken();
+    if (!token) throw new Error('Not authenticated');
+    const res = await fetch(`${BACKEND_URL}/api/v1/pdf/versions/${id}/download`, {
+      headers: { 'Authorization': `Bearer ${token}` },
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const blob = await res.blob();
+    const cd = res.headers.get('content-disposition') || '';
+    const fnMatch = cd.match(/filename="([^"]+)"/);
+    const filename = fnMatch?.[1] || 'resume.pdf';
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = filename;
+    document.body.appendChild(a); a.click();
+    setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 2000);
+    btn.innerHTML = '✓';
+    setTimeout(() => { btn.disabled = false; btn.innerHTML = orig; }, 2000);
+  } catch(e) {
+    btn.disabled = false;
+    btn.innerHTML = orig;
+  }
+}
+
+async function loadSavedVersions(panel) {
+  if (!panel) return;
+  try {
+    const token = _getToken(); if (!token) return;
+    const res = await fetch(`${BACKEND_URL}/api/v1/pdf/versions`, {
+      headers: { 'Authorization': `Bearer ${token}` },
+    });
+    if (!res.ok) return;
+    const { versions } = await res.json();
+    if (!versions?.length) { panel.innerHTML = ''; return; }
+    panel.innerHTML = `
+      <div class="rv-header">◆ Saved Resumes</div>
+      <div class="rv-list">
+        ${versions.map(v => `
+          <div class="rv-row" data-id="${v.id}">
+            <span class="rv-name" title="Click to rename" onclick="startRenameVersion(this,'${v.id}')">${escHtml(v.name)}</span>
+            <span class="rv-date">${fmtDate(v.created_at)}</span>
+            <button class="rv-dl" onclick="downloadVersionById('${v.id}',this)" title="Download">↓</button>
+            <button class="rv-del" onclick="deleteVersion('${v.id}',this)" title="Delete">✕</button>
+          </div>`).join('')}
+      </div>`;
+  } catch(_) { /* table may not exist yet — silent */ }
+}
+
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function fmtDate(iso) {
+  try { return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }); }
+  catch(_) { return iso; }
+}
+
+function startRenameVersion(el, id) {
+  const current = el.textContent.trim();
+  const input = document.createElement('input');
+  input.className = 'rv-rename-input';
+  input.value = current;
+  el.replaceWith(input);
+  input.focus();
+  input.select();
+
+  async function commit() {
+    const name = input.value.trim() || current;
+    const span = document.createElement('span');
+    span.className = 'rv-name';
+    span.title = 'Click to rename';
+    span.textContent = name;
+    span.onclick = () => startRenameVersion(span, id);
+    input.replaceWith(span);
+    if (name === current) return;
+    try {
+      const token = _getToken(); if (!token) return;
+      await fetch(`${BACKEND_URL}/api/v1/pdf/versions/${id}/name`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({ name }),
+      });
+    } catch(_) {}
+  }
+
+  input.addEventListener('blur', commit);
+  input.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); input.blur(); } if (e.key === 'Escape') { input.value = current; input.blur(); } });
+}
+
+async function deleteVersion(id, btn) {
+  if (!confirm('Delete this saved resume?')) return;
+  try {
+    const token = _getToken(); if (!token) return;
+    await fetch(`${BACKEND_URL}/api/v1/pdf/versions/${id}`, {
+      method: 'DELETE',
+      headers: { 'Authorization': `Bearer ${token}` },
+    });
+    btn.closest('.rv-row')?.remove();
+    const list = document.querySelector('.rv-list');
+    if (list && !list.children.length) list.closest('.rv-list')?.previousElementSibling?.remove();
+  } catch(_) {}
 }
 
 // ── Skill strengthening ──
