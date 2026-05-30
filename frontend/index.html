@@ -499,6 +499,41 @@ svg .node-g:active{cursor:grabbing;}
   color:var(--text);font-family:'DM Mono',monospace;font-size:11px;
   padding:2px 6px;border-radius:4px;outline:none;min-width:0;}
 
+/* resumes pane */
+.rp-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;}
+.rp-title{font-family:'DM Mono',monospace;font-size:8px;color:var(--text3);
+  letter-spacing:0.14em;text-transform:uppercase;}
+.rp-count{font-family:'DM Mono',monospace;font-size:8px;color:var(--text3);}
+.rp-empty{text-align:center;padding:40px 20px;}
+.rp-empty-icon{font-size:28px;margin-bottom:12px;opacity:0.3;}
+.rp-empty-msg{font-size:12px;color:var(--text2);line-height:1.7;margin-bottom:16px;}
+.rp-cta{font-family:'DM Mono',monospace;font-size:9px;color:var(--accent);
+  background:rgba(232,166,64,0.08);border:1px solid rgba(232,166,64,0.3);
+  padding:7px 16px;border-radius:6px;cursor:pointer;transition:all 0.2s;letter-spacing:0.05em;}
+.rp-cta:hover{background:rgba(232,166,64,0.15);}
+.rp-list{display:flex;flex-direction:column;gap:4px;}
+.rp-row{display:flex;align-items:center;gap:8px;padding:10px 12px;
+  background:var(--surface2);border:1px solid var(--border);border-radius:6px;
+  transition:border-color 0.15s;}
+.rp-row:hover{border-color:var(--border2);}
+.rp-name{flex:1;font-size:12px;color:var(--text);cursor:pointer;min-width:0;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  border-bottom:1px dashed transparent;transition:border-color 0.15s,color 0.15s;}
+.rp-name:hover{border-bottom-color:#a78bfa;color:#a78bfa;}
+.rp-meta{font-family:'DM Mono',monospace;font-size:8.5px;color:var(--text3);
+  white-space:nowrap;flex-shrink:0;}
+.rp-dl,.rp-del{flex-shrink:0;background:none;border:1px solid var(--border2);
+  color:var(--text2);font-size:10px;padding:3px 8px;border-radius:4px;
+  cursor:pointer;transition:all 0.15s;font-family:'DM Mono',monospace;}
+.rp-dl:hover:not(:disabled){border-color:#a78bfa;color:#a78bfa;}
+.rp-del:hover{border-color:var(--node-decision);color:var(--node-decision);}
+.rp-dl:disabled{opacity:0.5;cursor:default;}
+.rp-rename-input{flex:1;background:var(--bg);border:1px solid #a78bfa;
+  color:var(--text);font-family:'DM Mono',monospace;font-size:12px;
+  padding:2px 8px;border-radius:4px;outline:none;min-width:0;}
+.rp-spinner{font-family:'DM Mono',monospace;font-size:9px;color:var(--text3);
+  text-align:center;padding:24px;letter-spacing:0.1em;}
+
 /* inline action inputs */
 .inline-input-wrap{margin:12px 0 4px;}
 .inline-textarea{width:100%;background:var(--surface2);border:1px solid var(--border2);
@@ -663,6 +698,12 @@ svg .node-g:active{cursor:grabbing;}
         onclick="switchInsightTab('survey')">
         <span class="itab-dot" style="background:#6b7fa3"></span>Survey
       </button>
+      <!-- resumes tab: always visible from step 1 -->
+      <button class="insight-tab" id="itab-resumes"
+        style="--itab-color:#a78bfa;display:none;"
+        onclick="switchInsightTab('resumes')">
+        <span class="itab-dot" style="background:#a78bfa"></span>Resumes
+      </button>
     </div>
 
     <!-- ── INSIGHT PANES (one shown at a time) ── -->
@@ -677,6 +718,9 @@ svg .node-g:active{cursor:grabbing;}
     </div>
     <div class="insight-pane" id="ipane-survey" style="display:none;">
       <div id="bodySurvey"></div>
+    </div>
+    <div class="insight-pane" id="ipane-resumes" style="display:none;">
+      <div id="bodyResumes"></div>
     </div>
 
     <div class="conv-scroll" id="convScroll">
@@ -1027,7 +1071,8 @@ function saveSessions() {
       strength:   { visible: document.getElementById('itab-strength')?.style.display   !== 'none', active: document.getElementById('ipane-strength')?.style.display   !== 'none', html: document.getElementById('insightText')?.innerHTML   || '' },
       directions: { visible: document.getElementById('itab-directions')?.style.display !== 'none', active: document.getElementById('ipane-directions')?.style.display !== 'none', html: document.getElementById('bodyDirections')?.innerHTML || '' },
       portrait:   { visible: document.getElementById('itab-portrait')?.style.display   !== 'none', active: document.getElementById('ipane-portrait')?.style.display   !== 'none', html: document.getElementById('bodyPortrait')?.innerHTML   || '' },
-      survey:     { visible: document.getElementById('itab-survey')?.style.display     !== 'none', active: document.getElementById('ipane-survey')?.style.display     !== 'none', html: '' }
+      survey:     { visible: document.getElementById('itab-survey')?.style.display     !== 'none', active: document.getElementById('ipane-survey')?.style.display     !== 'none', html: '' },
+      resumes:    { visible: document.getElementById('itab-resumes')?.style.display    !== 'none', active: document.getElementById('ipane-resumes')?.style.display    !== 'none', html: '' }
     };
     // Also save current node positions from live SVG
     Object.keys(S().svgNodeEls).forEach(id => {
@@ -1178,8 +1223,14 @@ function restoreSession() {
     if (cs.strength?.html)   { document.getElementById('insightText').innerHTML    = cs.strength.html;   showCard('cardStrength',   false); if (!cs.strength.active)   collapseCard('cardStrength'); }
     if (cs.directions?.html) { document.getElementById('bodyDirections').innerHTML = cs.directions.html; showCard('cardDirections', false); if (!cs.directions.active) collapseCard('cardDirections'); }
     if (cs.portrait?.html)   { document.getElementById('bodyPortrait').innerHTML   = cs.portrait.html;   showCard('cardPortrait',   false); if (!cs.portrait.active)   collapseCard('cardPortrait'); }
+    // Restore resumes tab visibility
+    if (cs.resumes?.visible) {
+      const rt = document.getElementById('itab-resumes');
+      if (rt) rt.style.display = '';
+      if (cs.resumes.active) _activateInsightTab('resumes');
+    }
     // If no pane is active, make sure conv-scroll is visible
-    const anyActive = ['strength','directions','portrait','survey'].some(k => document.getElementById('ipane-'+k)?.style.display !== 'none');
+    const anyActive = ['strength','directions','portrait','survey','resumes'].some(k => document.getElementById('ipane-'+k)?.style.display !== 'none');
     if (!anyActive) document.getElementById('convScroll').style.display = '';
     // Mark qa tab active if visible (steps 1-4) and no pane is showing
     const qaTab = document.getElementById('itab-qa');
@@ -1323,9 +1374,10 @@ function setStep(n) {
     else if (n >= (i+1)*2) el.classList.add('done');
   });
 
-  const bar    = document.getElementById('insightTabBar');
-  const qaTab  = document.getElementById('itab-qa');
-  const srvTab = document.getElementById('itab-survey');
+  const bar      = document.getElementById('insightTabBar');
+  const qaTab    = document.getElementById('itab-qa');
+  const srvTab   = document.getElementById('itab-survey');
+  const resumeTab= document.getElementById('itab-resumes');
 
   if (n === 0) {
     // Pre-resume: hide tab bar entirely
@@ -1334,13 +1386,14 @@ function setStep(n) {
     // Q&A in progress: show tab bar, career intelligence tab is the landing tab
     if (bar) bar.style.display = '';
     if (qaTab) qaTab.style.display = '';
+    if (resumeTab) resumeTab.style.display = '';
     // Make qa tab active only if no insight pane is currently showing
-    const anyPaneActive = ['strength','directions','portrait','survey'].some(
+    const anyPaneActive = ['strength','directions','portrait','survey','resumes'].some(
       k => document.getElementById('ipane-'+k)?.style.display !== 'none'
     );
     if (!anyPaneActive && qaTab) qaTab.classList.add('active');
   } else if (n >= 5) {
-    // Complete: hide qa tab, rename secondary tabs, show survey tab
+    // Complete: hide qa tab, rename secondary tabs, show survey + resumes tabs
     if (qaTab) { qaTab.style.display = 'none'; qaTab.classList.remove('active'); }
     // Rename directions → Career Priorities
     const dirTab = document.getElementById('itab-directions');
@@ -1352,6 +1405,7 @@ function setStep(n) {
     if (srvTab) srvTab.style.display = '';
     const bodyS = document.getElementById('bodySurvey');
     if (bodyS && !bodyS.innerHTML) bodyS.innerHTML = buildSurveyHTML();
+    if (resumeTab) resumeTab.style.display = '';
     if (bar) bar.style.display = '';
   }
 }
@@ -1959,10 +2013,11 @@ async function downloadResumePDF(btn) {
     btn.style.background = 'rgba(16,185,129,0.12)';
     btn.style.borderColor = 'var(--green)';
     btn.style.color = 'var(--green)';
-    // Refresh saved versions panel
+    // Refresh saved versions panel (inline) and Resumes tab pane
     const panel = btn.closest('[id]')?.querySelector?.('#savedVersionsPanel')
       || document.getElementById('savedVersionsPanel');
     if (panel) loadSavedVersions(panel);
+    if (document.getElementById('ipane-resumes')?.style.display !== 'none') loadResumesPane();
     // Allow re-download after short delay
     setTimeout(() => {
       btn.disabled = false;
@@ -2028,6 +2083,99 @@ async function loadSavedVersions(panel) {
   } catch(_) { /* table may not exist yet — silent */ }
 }
 
+// ── RESUMES PANE (dedicated tab view) ─────────────────────────
+
+async function loadResumesPane() {
+  const body = document.getElementById('bodyResumes');
+  if (!body) return;
+  body.innerHTML = `<div class="rp-spinner">Loading…</div>`;
+  try {
+    const token = _getToken(); if (!token) { body.innerHTML = ''; return; }
+    const res = await fetch(`${BACKEND_URL}/api/v1/pdf/versions`, {
+      headers: { 'Authorization': `Bearer ${token}` },
+    });
+    if (!res.ok) { renderResumesPaneEmpty(body); return; }
+    const { versions } = await res.json();
+    if (!versions?.length) { renderResumesPaneEmpty(body); return; }
+    body.innerHTML = `
+      <div class="rp-header">
+        <span class="rp-title">◆ Your Resumes</span>
+        <span class="rp-count">${versions.length} version${versions.length !== 1 ? 's' : ''}</span>
+      </div>
+      <div class="rp-list">
+        ${versions.map(v => `
+          <div class="rp-row" data-id="${v.id}">
+            <span class="rp-name" title="Click to rename" onclick="startRenamePaneVersion(this,'${v.id}')">${escHtml(v.name)}</span>
+            <span class="rp-meta">${fmtDate(v.created_at)}</span>
+            <button class="rp-dl" onclick="downloadVersionById('${v.id}',this)" title="Download">↓</button>
+            <button class="rp-del" onclick="deletePaneVersion('${v.id}',this)" title="Delete">✕</button>
+          </div>`).join('')}
+      </div>`;
+  } catch(_) { renderResumesPaneEmpty(body); }
+}
+
+function renderResumesPaneEmpty(body) {
+  body.innerHTML = `
+    <div class="rp-empty">
+      <div class="rp-empty-icon">◧</div>
+      <div class="rp-empty-msg">No resumes saved yet.<br>Project your graph onto a role and<br>download it as a named version.</div>
+      <button class="rp-cta" onclick="switchInsightTab('qa');setTimeout(()=>{const el=document.getElementById('convScroll');if(el)el.scrollTop=el.scrollHeight;},100)">Go to Career Intelligence →</button>
+    </div>`;
+}
+
+function startRenamePaneVersion(el, id) {
+  const current = el.textContent.trim();
+  const input = document.createElement('input');
+  input.className = 'rp-rename-input';
+  input.value = current;
+  el.replaceWith(input);
+  input.focus(); input.select();
+
+  async function commit() {
+    const name = input.value.trim() || current;
+    const span = document.createElement('span');
+    span.className = 'rp-name'; span.title = 'Click to rename'; span.textContent = name;
+    span.onclick = () => startRenamePaneVersion(span, id);
+    input.replaceWith(span);
+    if (name === current) return;
+    try {
+      const token = _getToken(); if (!token) return;
+      await fetch(`${BACKEND_URL}/api/v1/pdf/versions/${id}/name`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({ name }),
+      });
+      // Also update the inline panel if it exists
+      const inlineRow = document.querySelector(`.rv-row[data-id="${id}"] .rv-name`);
+      if (inlineRow) inlineRow.textContent = name;
+    } catch(_) {}
+  }
+
+  input.addEventListener('blur', commit);
+  input.addEventListener('keydown', e => {
+    if (e.key === 'Enter') { e.preventDefault(); input.blur(); }
+    if (e.key === 'Escape') { input.value = current; input.blur(); }
+  });
+}
+
+async function deletePaneVersion(id, btn) {
+  if (!confirm('Delete this saved resume?')) return;
+  try {
+    const token = _getToken(); if (!token) return;
+    await fetch(`${BACKEND_URL}/api/v1/pdf/versions/${id}`, {
+      method: 'DELETE', headers: { 'Authorization': `Bearer ${token}` },
+    });
+    const row = btn.closest('.rp-row');
+    if (row) row.remove();
+    // If list is now empty show the empty state
+    const list = document.querySelector('.rp-list');
+    if (list && !list.querySelector('.rp-row')) renderResumesPaneEmpty(document.getElementById('bodyResumes'));
+    // Also remove from inline panel
+    const inlineRow = document.querySelector(`.rv-row[data-id="${id}"]`);
+    if (inlineRow) inlineRow.remove();
+  } catch(_) {}
+}
+
 function escHtml(s) {
   return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
@@ -2079,7 +2227,14 @@ async function deleteVersion(id, btn) {
     });
     btn.closest('.rv-row')?.remove();
     const list = document.querySelector('.rv-list');
-    if (list && !list.children.length) list.closest('.rv-list')?.previousElementSibling?.remove();
+    if (list && !list.querySelector('.rv-row')) {
+      list.previousElementSibling?.remove(); list.remove();
+    }
+    // Keep Resumes pane in sync
+    const paneRow = document.querySelector(`.rp-row[data-id="${id}"]`);
+    if (paneRow) paneRow.remove();
+    const paneList = document.querySelector('.rp-list');
+    if (paneList && !paneList.querySelector('.rp-row')) renderResumesPaneEmpty(document.getElementById('bodyResumes'));
   } catch(_) {}
 }
 
@@ -2395,7 +2550,7 @@ const _INSIGHT_KEY = { cardStrength:'strength', cardDirections:'directions', car
 
 function _activateInsightTab(key) {
   // Deactivate all panes and mark all tab buttons inactive
-  ['strength','directions','portrait','survey'].forEach(k => {
+  ['strength','directions','portrait','survey','resumes'].forEach(k => {
     const p = document.getElementById('ipane-' + k);
     const t = document.getElementById('itab-' + k);
     if (p) p.style.display = 'none';
@@ -2417,6 +2572,8 @@ function _activateInsightTab(key) {
     const tab  = document.getElementById('itab-' + key);
     if (pane) pane.style.display = '';
     if (tab)  tab.classList.add('active');
+    // Resumes pane: always refresh data when activated
+    if (key === 'resumes') loadResumesPane();
   }
 }
 
