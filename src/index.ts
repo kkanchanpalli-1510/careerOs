@@ -5,6 +5,7 @@ import cors from 'cors';
 import path from 'path';
 import claudeRouter from './routes/claude';
 import sessionsRouter from './routes/sessions';
+import pdfRouter from './routes/pdf';
 
 const app = express();
 // Allow configured origin, localhost variants, and null (file:// local HTML)
@@ -33,6 +34,7 @@ app.use(express.static(path.resolve(process.cwd(), 'frontend')));
 app.get('/health', (_req, res) => res.json({ status: 'ok', v: 2 }));
 app.use('/api/v1/claude', claudeRouter);
 app.use('/api/v1/sessions', sessionsRouter);
+app.use('/api/v1/pdf', pdfRouter);
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`Career OS API on port ${PORT}`));

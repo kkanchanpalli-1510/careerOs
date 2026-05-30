@@ -460,6 +460,16 @@ svg .node-g:active{cursor:grabbing;}
 .proj-bridge{font-size:12px;color:var(--text2);line-height:1.7;margin-top:12px;
   padding-top:12px;border-top:1px solid var(--border);font-style:italic;}
 
+/* pdf download */
+.pdf-dl-btn{display:inline-flex;align-items:center;gap:7px;margin-top:2px;
+  font-family:'DM Mono',monospace;font-size:10px;letter-spacing:0.06em;
+  background:rgba(232,166,64,0.1);border:1px solid rgba(232,166,64,0.4);
+  color:var(--accent);padding:8px 18px;border-radius:6px;cursor:pointer;
+  transition:all 0.2s;}
+.pdf-dl-btn:hover:not(:disabled){background:rgba(232,166,64,0.18);border-color:var(--accent);}
+.pdf-dl-btn:disabled{cursor:default;opacity:0.75;}
+.pdf-dl-note{font-size:9.5px;color:var(--text3);margin-top:6px;font-style:italic;}
+
 /* inline action inputs */
 .inline-input-wrap{margin:12px 0 4px;}
 .inline-textarea{width:100%;background:var(--surface2);border:1px solid var(--border2);
@@ -1853,6 +1863,15 @@ async function submitResumePrep() {
     scroll.appendChild(card);
     addMsg('system', 'Projection complete. These bullets are grounded in your actual graph — copy them into your resume or use as a starting framework.');
 
+    // Download PDF button
+    const dlWrap = document.createElement('div');
+    dlWrap.style.cssText = 'margin:12px 0 4px;';
+    dlWrap.innerHTML = `<button class="pdf-dl-btn" id="pdfDlBtn" onclick="downloadResumePDF(this)">
+      <span style="font-size:13px;">↓</span> Download Resume PDF
+    </button>
+    <div class="pdf-dl-note">Fill in your name and contact details before sending — everything else is ready.</div>`;
+    scroll.appendChild(dlWrap);
+
     // Follow-up pill: prep the interview
     const followUp = document.createElement('div');
     followUp.style.cssText = 'margin-top:10px;';
@@ -1869,6 +1888,43 @@ async function submitResumePrep() {
   } catch(e) {
     t.remove();
     addMsg('system', `<span style="color:var(--node-decision)">Projection error: ${e.message}</span>`);
+  }
+}
+
+// ── PDF download ──────────────────────────────────────────────
+
+async function downloadResumePDF(btn) {
+  const orig = btn.innerHTML;
+  btn.disabled = true;
+  btn.innerHTML = '<span style="opacity:0.7">Generating PDF…</span>';
+  try {
+    const token = _getToken();
+    if (!token) throw new Error('Not authenticated');
+    const res = await fetch(`${BACKEND_URL}/api/v1/pdf/resume`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+      body: JSON.stringify({ session_id: S().session_id }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || `HTTP ${res.status}`);
+    }
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'career-os-resume.pdf';
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 2000);
+    btn.innerHTML = '✓ Downloaded';
+    btn.style.background = 'rgba(16,185,129,0.12)';
+    btn.style.borderColor = 'var(--green)';
+    btn.style.color = 'var(--green)';
+  } catch(e) {
+    btn.disabled = false;
+    btn.innerHTML = orig;
+    addMsg('system', `<span style="color:var(--node-decision)">PDF error: ${e.message}</span>`);
   }
 }
 
