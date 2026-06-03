@@ -102,7 +102,7 @@ Run them in order:
 2. **`004_copy_events.sql`** — creates `copy_events` table (copy tracking). Copy events will silently fail until this runs.
 3. **`005_previous_insight.sql`** — adds `previous_insight TEXT` to `career_sessions`. Regenerate-insight restore will fail until this runs.
 
-## What has been built (spec docs in `../files/career-os-docs/`)
+## What has been built (spec docs in `docs/`)
 - **Doc 08** — Career stage detection (`detectCareerStage`, `detectStageProfile`) — COMPLETE
   - Three stages: `ic`, `leader`, `executive`. Word-boundary regexes guard against substring false positives.
   - Stage-calibrated insight prompt (`STAGE_INSTRUCTIONS` in `insightGeneration.ts`)
