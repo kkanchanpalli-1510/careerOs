@@ -1,7 +1,7 @@
 // Pure function — reads DB, no writes, no Claude calls
 
 import { AssemblerInput, PromptPackage, CareerGraph, Node } from './types';
-import { buildCareerSummary } from './summary';
+import { buildCareerSummary, detectStageProfile } from './summary';
 import { buildInsightPrompt } from './tasks/insightGeneration';
 import { supabaseAdmin } from '../db/client';
 
@@ -163,7 +163,8 @@ async function assembleInsightGeneration(input: AssemblerInput): Promise<PromptP
     e => selectedIds.has(e.source) && selectedIds.has(e.target)
   );
 
-  const pkg = buildInsightPrompt(selected, relevantEdges);
+  const stageProfile = detectStageProfile(graph);
+  const pkg = buildInsightPrompt(selected, relevantEdges, stageProfile);
 
   return {
     ...pkg,

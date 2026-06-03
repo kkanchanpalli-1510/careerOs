@@ -1,4 +1,130 @@
 import { Node, Edge, PromptPackage } from '../types';
+import { CareerStage, StageProfile } from '../summary';
+
+// ── Stage instructions ────────────────────────────────────────────────────────
+
+const STAGE_INSTRUCTIONS: Record<CareerStage, string> = {
+  ic: `CAREER STAGE: Individual Contributor
+
+FOCUS: What this person builds, creates, and sees that others cannot.
+The remarkable thing about them is CRAFT — rare technical capability,
+unusual combinations of skills, the instinct to build the right thing.
+
+TONE: Direct, energetic, specific. Short punchy sentences.
+Celebrate depth and specificity. Use active verbs.
+
+OPENS WITH: "You build..." / "You see..." / "You create..." /
+"You have an instinct for..." / "Your ability to [specific thing]..."
+
+VOCABULARY: build, create, solve, design, see, instinct, craft, depth,
+rare combination, almost no one, specific capability
+
+EVIDENCE: Ground in specific technical outputs, projects built,
+problems solved in a way others couldn't
+
+IDENTITY REFRAME: The craftsperson. The builder. The inventor.
+Someone who produces things others cannot.
+
+WHAT TO AVOID: Generic leadership language. "Strategic vision."
+Anything that sounds like a performance review.`,
+
+  leader: `CAREER STAGE: Manager / Director / Team Lead
+
+FOCUS: The leverage this person creates in others and the systems
+they build that outlast their direct involvement.
+The remarkable thing is the FORCE MULTIPLIER — they make teams
+better, translate between technical and organizational reality,
+build capabilities that compound.
+
+TONE: Measured, warm, specific about impact on others.
+Medium sentence length. The hero is what they enabled,
+not what they personally produced.
+
+OPENS WITH: "You create conditions..." / "You multiply..." /
+"What makes you rare is not what you build — it's what you
+enable others to build." / "You have a gift for..."
+
+VOCABULARY: enables, multiplies, builds teams, creates conditions,
+translates, bridges, compounds, outlasts, leverage, force multiplier
+
+EVIDENCE: Ground in team outcomes, capabilities built in others,
+systems that continued after they moved on
+
+IDENTITY REFRAME: The multiplier. The builder of builders.
+Someone who creates leverage that outlasts their direct involvement.
+
+WHAT TO AVOID: Focusing only on their individual technical output.
+Ignoring the organizational impact. Using IC-level language
+for someone who has clearly moved beyond individual execution.`,
+
+  executive: `CAREER STAGE: VP / SVP / C-Suite / Executive / Founder
+
+FOCUS: The bets they make and the worlds they create.
+The remarkable thing is JUDGMENT — they see the strategic move
+before it is obvious, have the conviction to make it, and
+the credibility to move organizations toward it.
+
+TONE: Deliberate, measured, elevated. Longer sentences that
+carry weight. Not breathless. Not hushed reverence.
+The tone of someone speaking to an equal who happens to
+have a remarkable pattern in their history.
+
+OPENS WITH: "You have the judgment to..." / "You possess a rare
+quality of mind..." / "What distinguishes you is not..." /
+"You are one of the few people who can..."
+
+VOCABULARY: judgment, vision, conviction, bets, shapes, defines,
+architecture, transformation, before it was obvious, moves
+organizations, rare quality, consequential
+
+EVIDENCE: Ground in strategic decisions made before they were
+validated, organizational transformations led, the moments where
+they had conviction without proof
+
+IDENTITY REFRAME: The architect. The bet-maker. The world-builder.
+Someone who creates the conditions in which great things become possible.
+
+WHAT TO AVOID: Focusing on execution. Focusing on individual
+technical output. Anything that sounds like IC or manager-level
+achievement. Breathless admiration — executives respond to
+peers, not fans.`,
+};
+
+function buildTransitionNote(profile: StageProfile): string {
+  if (!profile.isTransitioning && !profile.titleCapabilityGap) return '';
+
+  if (profile.titleCapabilityGap) {
+    return `IMPORTANT — TITLE/CAPABILITY GAP DETECTED:
+This person's outcomes suggest they are operating ABOVE their current title.
+Their capabilities and impact are at a higher level than their formal position.
+Surface this gap explicitly as part of the identity reframe — they are
+already operating at the next level, they just haven't been formally
+recognized for it yet. This is often the most valuable insight Career OS
+can deliver.`;
+  }
+
+  if (profile.transitionDirection === 'ic_to_leader') {
+    return `IMPORTANT — RECENT TRANSITION: IC → LEADER
+This person has recently moved from individual contributor to leading others.
+They likely still think of themselves primarily as a builder/craftsperson.
+The insight should honor their IC roots while helping them see that their
+identity is expanding — they are now building people and systems, not just products.
+This is an identity transition moment. Handle with care and specificity.`;
+  }
+
+  if (profile.transitionDirection === 'leader_to_executive') {
+    return `IMPORTANT — RECENT TRANSITION: LEADER → EXECUTIVE
+This person has recently crossed into executive-level scope and impact.
+They may still describe themselves in manager/director terms.
+The insight should reflect back the executive-level pattern already
+visible in their graph — the strategic bets, the organizational impact,
+the judgment calls — even if they haven't fully claimed that identity yet.`;
+  }
+
+  return '';
+}
+
+// ── Banned words + validation ─────────────────────────────────────────────────
 
 const BANNED_WORDS = [
   'seasoned', 'passionate', 'proven', 'dynamic', 'results-driven',
@@ -10,7 +136,8 @@ const BANNED_WORDS = [
 
 export function buildInsightPrompt(
   selectedNodes: Node[],
-  edges: Edge[]
+  edges: Edge[],
+  stageProfile: StageProfile,
 ): PromptPackage {
   const nodeContext = selectedNodes
     .map(n => `${n.type} (weight ${n.weight}): ${n.label} — ${n.detail}`)
@@ -25,6 +152,9 @@ export function buildInsightPrompt(
     })
     .filter(Boolean)
     .join('\n');
+
+  const stageInstructions = STAGE_INSTRUCTIONS[stageProfile.stage];
+  const transitionNote    = buildTransitionNote(stageProfile);
 
   const system = `You are a career intelligence engine with one job: say the thing about this person's career that they have never been able to say about themselves — but will immediately recognize as true.
 
@@ -93,7 +223,9 @@ ABSOLUTE RULES:
 - The insight must be specific enough it could only apply to this person's graph, not to any senior professional
 - Maximum 3 sentences. No hedging. No "it appears" or "it seems" or "it looks like"
 - Tone: like a trusted mentor who has studied their entire career and is telling them something true that nobody else has ever named for them
-- The final sentence (the reframe) should be something they would actually put in their LinkedIn bio or use to introduce themselves`;
+- The final sentence (the reframe) should be something they would actually put in their LinkedIn bio or use to introduce themselves
+
+${stageInstructions}${transitionNote ? `\n\n${transitionNote}` : ''}`;
 
   const user_context = `Career graph nodes:\n${nodeContext}${edgeContext ? `\n\nRelationships:\n${edgeContext}` : ''}`;
 

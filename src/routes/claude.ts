@@ -5,7 +5,7 @@ import { anthropic, MODEL } from '../lib/anthropic';
 import { logUsage, checkRateLimit } from '../db/usage';
 import { validateSessionOwnership, updateSession } from '../db/sessions';
 import { appendNodeMessages } from '../db/conversations';
-import { buildDeterministicSkeleton } from '../assembler/summary';
+import { buildDeterministicSkeleton, detectStageProfile } from '../assembler/summary';
 import { CareerGraph, InsightStrength, TaskType } from '../assembler/types';
 import { validateInsight } from '../assembler/tasks/insightGeneration';
 import type { Message } from '@anthropic-ai/sdk/resources/messages';
@@ -107,7 +107,7 @@ router.post('/extract', async (req: Request, res: Response) => {
     const response = await callClaude(userId, session_id, 'graph_extraction', pkg, 3000);
     const graph: CareerGraph = parseJsonResponse<CareerGraph>(response);
 
-    const skeleton = buildDeterministicSkeleton(graph, null, null);
+    const skeleton = buildDeterministicSkeleton(graph, null, null, detectStageProfile(graph));
     await updateSession(session_id, userId, {
       graph_data: graph,
       career_summary: skeleton,
@@ -234,7 +234,7 @@ router.post('/enrich', async (req: Request, res: Response) => {
     const answers: string[] = session.answers ?? [];
     answers[question_index] = answer;
 
-    const skeleton = buildDeterministicSkeleton(updatedGraph, session.insights, session.selected_branch);
+    const skeleton = buildDeterministicSkeleton(updatedGraph, session.insights, session.selected_branch, detectStageProfile(updatedGraph));
     await updateSession(session_id, userId, {
       graph_data: updatedGraph,
       career_summary: skeleton,
@@ -285,7 +285,7 @@ router.post('/synthesis', async (req: Request, res: Response) => {
         .then(async r => {
           const pattern = responseText(r);
           const graph: CareerGraph = session.graph_data ?? { nodes: [], edges: [] };
-          const skeleton = buildDeterministicSkeleton(graph, insights, chosen_branch_index);
+          const skeleton = buildDeterministicSkeleton(graph, insights, chosen_branch_index, detectStageProfile(graph));
           await updateSession(session_id, userId, {
             behavioral_pattern: pattern,
             career_summary: `${skeleton}\n${pattern}`,
