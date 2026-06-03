@@ -3,11 +3,15 @@
 import { AssemblerInput, PromptPackage, CareerGraph, Node } from './types';
 import { buildCareerSummary, detectStageProfile } from './summary';
 import { buildInsightPrompt } from './tasks/insightGeneration';
+import { buildInsightRegenerationPrompt } from './tasks/insightRegeneration';
+import { buildLinkedInSummaryPrompt } from './tasks/linkedinSummary';
+import { buildShortBioPrompt } from './tasks/shortBio';
 import { supabaseAdmin } from '../db/client';
 
 const CEILINGS: Record<string, number> = {
   graph_extraction:          5000,
   insight_generation:         800,
+  insight_regeneration:       800,
   branch_generation:         1000,
   gap_enrichment:             500,
   final_synthesis:           1500,
@@ -15,6 +19,8 @@ const CEILINGS: Record<string, number> = {
   resume_projection:         1200,
   career_summary_generation:  600,
   career_chat:               1400,
+  linkedin_summary:          1200,
+  short_bio:                  800,
 };
 
 function tokens(text: string) { return Math.ceil(text.length / 4); }
@@ -87,6 +93,7 @@ export async function assembleContext(input: AssemblerInput): Promise<PromptPack
   switch (input.task) {
     case 'graph_extraction':          return assembleGraphExtraction(input);
     case 'insight_generation':        return assembleInsightGeneration(input);
+    case 'insight_regeneration':      return assembleInsightRegeneration(input);
     case 'branch_generation':         return assembleBranchGeneration(input);
     case 'gap_enrichment':            return assembleGapEnrichment(input);
     case 'final_synthesis':           return assembleFinalSynthesis(input);
@@ -94,6 +101,8 @@ export async function assembleContext(input: AssemblerInput): Promise<PromptPack
     case 'resume_projection':         return assembleResumeProjection(input);
     case 'career_summary_generation': return assembleCareerSummaryGeneration(input);
     case 'career_chat':               return assembleCareerChat(input);
+    case 'linkedin_summary':          return assembleLinkedInSummary(input);
+    case 'short_bio':                 return assembleShortBio(input);
     default: throw new Error(`AssemblerError: unknown task ${(input as never as { task: string }).task}`);
   }
 }
@@ -469,6 +478,42 @@ async function assembleCareerSummaryGeneration(input: AssemblerInput): Promise<P
   };
 }
 
+// ─── 2b. insight_regeneration ────────────────────────────────
+
+async function assembleInsightRegeneration(input: AssemblerInput): Promise<PromptPackage> {
+  const { session_id, previous_insight } = input.params as {
+    session_id: string; previous_insight: string;
+  };
+  const session = await getSession(session_id, input.user_id);
+  if (!session) throw new Error('AssemblerError: session not found');
+
+  const graph: CareerGraph = session.graph_data ?? { nodes: [], edges: [] };
+
+  const byRecencyDesc = (a: Node, b: Node) =>
+    (parseEndYear(b.year) - parseEndYear(a.year)) || (b.weight - a.weight);
+
+  const w3 = graph.nodes.filter(n => n.weight === 3).sort(byRecencyDesc);
+  const w2 = graph.nodes.filter(n => n.weight === 2).sort(byRecencyDesc).slice(0, 6);
+  const recentW1 = graph.nodes
+    .filter(n => n.weight === 1 && getRecencyScore(n, CURRENT_YEAR) >= 2)
+    .sort(byRecencyDesc).slice(0, 3);
+  const selected = [...w3, ...w2, ...recentW1];
+  const selectedIds = new Set(selected.map(n => n.id));
+  const relevantEdges = graph.edges.filter(
+    e => selectedIds.has(e.source) && selectedIds.has(e.target)
+  );
+
+  const stageProfile = detectStageProfile(graph);
+  const pkg = buildInsightRegenerationPrompt(selected, relevantEdges, stageProfile, previous_insight);
+
+  return {
+    ...pkg,
+    estimated_tokens: Math.min(pkg.estimated_tokens, CEILINGS.insight_regeneration),
+    cache_key: `insight_regen:${session_id}:v${session.summary_version}`,
+    metadata: { ...pkg.metadata, summary_version: session.summary_version ?? 0 },
+  };
+}
+
 // ─── 9. career_chat ──────────────────────────────────────────
 
 async function assembleCareerChat(input: AssemblerInput): Promise<PromptPackage> {
@@ -532,5 +577,41 @@ async function assembleCareerChat(input: AssemblerInput): Promise<PromptPackage>
       truncated: est > CEILINGS.career_chat,
       summary_version: session.summary_version ?? 0,
     },
+  };
+}
+
+// ─── 10. linkedin_summary ────────────────────────────────────
+
+async function assembleLinkedInSummary(input: AssemblerInput): Promise<PromptPackage> {
+  const { session_id } = input.params as { session_id: string };
+  const session = await getSession(session_id, input.user_id);
+  if (!session) throw new Error('AssemblerError: session not found');
+
+  const stageProfile = detectStageProfile(session.graph_data ?? { nodes: [], edges: [] });
+  const pkg = buildLinkedInSummaryPrompt(session, stageProfile);
+
+  return {
+    ...pkg,
+    estimated_tokens: Math.min(pkg.estimated_tokens, CEILINGS.linkedin_summary),
+    cache_key: `linkedin:${session_id}:v${session.summary_version}`,
+    metadata: { ...pkg.metadata, summary_version: session.summary_version ?? 0 },
+  };
+}
+
+// ─── 11. short_bio ───────────────────────────────────────────
+
+async function assembleShortBio(input: AssemblerInput): Promise<PromptPackage> {
+  const { session_id } = input.params as { session_id: string };
+  const session = await getSession(session_id, input.user_id);
+  if (!session) throw new Error('AssemblerError: session not found');
+
+  const stageProfile = detectStageProfile(session.graph_data ?? { nodes: [], edges: [] });
+  const pkg = buildShortBioPrompt(session, stageProfile);
+
+  return {
+    ...pkg,
+    estimated_tokens: Math.min(pkg.estimated_tokens, CEILINGS.short_bio),
+    cache_key: `bio:${session_id}:v${session.summary_version}`,
+    metadata: { ...pkg.metadata, summary_version: session.summary_version ?? 0 },
   };
 }

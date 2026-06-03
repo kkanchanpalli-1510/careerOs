@@ -368,4 +368,125 @@ router.post('/career-chat', async (req: Request, res: Response) => {
   }
 });
 
+// ─── POST /claude/insight/regenerate ─────────────────────────
+
+router.post('/insight/regenerate', async (req: Request, res: Response) => {
+  const userId = uid(req);
+  const { session_id, previous_insight } = req.body;
+  if (!session_id || !previous_insight) {
+    res.status(400).json({ error: 'session_id, previous_insight required' }); return;
+  }
+
+  if (!await checkRateLimit(userId, 'insight_regeneration')) {
+    res.status(429).json({ error: 'Daily regeneration limit reached' }); return;
+  }
+
+  const session = await validateSessionOwnership(session_id, userId);
+  if (!session) { res.status(403).json({ error: 'Forbidden' }); return; }
+
+  try {
+    const pkg = await assembleContext({
+      user_id: userId, task: 'insight_regeneration',
+      params: { session_id, previous_insight },
+    });
+
+    let response = await callClaude(userId, session_id, 'insight_regeneration', pkg, 400);
+    let strength: InsightStrength = parseJsonResponse<InsightStrength>(response);
+
+    // Same quality gate as initial insight_generation
+    if (!validateInsight(strength.insight)) {
+      const retryPkg = {
+        ...pkg,
+        task_prompt: `${pkg.task_prompt}\n\nNOTE: The previous attempt contained generic language. Regenerate with more specific behavioral evidence from the graph. The identity reframe in sentence 3 must use **bold**.`,
+      };
+      response = await callClaude(userId, session_id, 'insight_regeneration', retryPkg, 400);
+      strength = parseJsonResponse<InsightStrength>(response);
+    }
+
+    // Save new insight; move current insight into previous_insight for restore
+    const insights = { ...(session.insights ?? {}), strength };
+    await updateSession(session_id, userId, {
+      insights,
+      previous_insight,
+    });
+
+    res.json({ strength, metadata: pkg.metadata });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : 'insight_regeneration failed';
+    res.status(500).json({ error: msg });
+  }
+});
+
+// ─── POST /claude/linkedin-summary ───────────────────────────
+
+router.post('/linkedin-summary', async (req: Request, res: Response) => {
+  const userId = uid(req);
+  const { session_id } = req.body;
+  if (!session_id) { res.status(400).json({ error: 'session_id required' }); return; }
+
+  if (!await checkRateLimit(userId, 'linkedin_summary')) {
+    res.status(429).json({ error: 'Daily LinkedIn summary limit reached' }); return;
+  }
+
+  const session = await validateSessionOwnership(session_id, userId);
+  if (!session) { res.status(403).json({ error: 'Forbidden' }); return; }
+
+  try {
+    const pkg = await assembleContext({
+      user_id: userId, task: 'linkedin_summary', params: { session_id },
+    });
+
+    const response = await callClaude(userId, session_id, 'linkedin_summary', pkg, 600);
+    const summary = responseText(response);
+
+    const insights = {
+      ...(session.insights ?? {}),
+      linkedin_summary: summary,
+      linkedin_summary_generated_at: new Date().toISOString(),
+    };
+    await updateSession(session_id, userId, { insights });
+
+    res.json({ summary, character_count: summary.length, metadata: pkg.metadata });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : 'linkedin_summary failed';
+    res.status(500).json({ error: msg });
+  }
+});
+
+// ─── POST /claude/short-bio ───────────────────────────────────
+
+router.post('/short-bio', async (req: Request, res: Response) => {
+  const userId = uid(req);
+  const { session_id } = req.body;
+  if (!session_id) { res.status(400).json({ error: 'session_id required' }); return; }
+
+  if (!await checkRateLimit(userId, 'short_bio')) {
+    res.status(429).json({ error: 'Daily bio limit reached' }); return;
+  }
+
+  const session = await validateSessionOwnership(session_id, userId);
+  if (!session) { res.status(403).json({ error: 'Forbidden' }); return; }
+
+  try {
+    const pkg = await assembleContext({
+      user_id: userId, task: 'short_bio', params: { session_id },
+    });
+
+    const response = await callClaude(userId, session_id, 'short_bio', pkg, 300);
+    const bio = responseText(response);
+
+    const insights = {
+      ...(session.insights ?? {}),
+      short_bio: bio,
+      short_bio_generated_at: new Date().toISOString(),
+    };
+    await updateSession(session_id, userId, { insights });
+
+    res.json({ bio, metadata: pkg.metadata });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : 'short_bio failed';
+    res.status(500).json({ error: msg });
+  }
+});
+
 export default router;

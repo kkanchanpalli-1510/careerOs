@@ -6,6 +6,7 @@
 <title>Career OS — Onboarding</title>
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400&family=DM+Mono:wght@300;400;500&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js" defer></script>
 <style>
 :root {
   --bg:#08090f; --surface:#0f1018; --surface2:#141622;
@@ -550,6 +551,112 @@ svg .node-g:active{cursor:grabbing;}
   background:var(--surface2);border:1px solid var(--node-skill);color:var(--node-skill);
   padding:4px 10px;border-radius:20px;cursor:pointer;transition:all 0.15s;}
 .skill-chip:hover{background:rgba(16,185,129,0.12);}
+
+/* ── Copy / Regenerate buttons (Day 1 + Day 2) ─────────────── */
+.copy-btn{
+  display:inline-flex;align-items:center;gap:5px;
+  font-family:'DM Mono',monospace;font-size:9px;letter-spacing:0.08em;
+  text-transform:uppercase;color:var(--text3);background:none;
+  border:1px solid var(--border2);border-radius:3px;padding:4px 9px;
+  cursor:pointer;transition:all 0.15s;flex-shrink:0;
+}
+.copy-btn:hover{color:var(--text);border-color:var(--accent);}
+.copy-btn.copied{color:var(--green);border-color:var(--green);}
+.copy-btn.loading{color:var(--text3);opacity:0.6;cursor:default;}
+
+/* row that holds insight text + action buttons */
+.insight-action-row{display:flex;align-items:flex-start;gap:8px;margin-top:8px;}
+.insight-action-row .oc-text{flex:1;}
+.insight-btns{display:flex;flex-direction:column;gap:6px;flex-shrink:0;padding-top:2px;}
+
+/* ── Share Your Story sub-section (Day 3) ───────────────────── */
+.share-story-section{margin-top:16px;border-top:1px solid var(--border);padding-top:14px;}
+.share-story-header{
+  font-family:'DM Mono',monospace;font-size:8px;letter-spacing:0.12em;
+  text-transform:uppercase;color:var(--text3);margin-bottom:10px;
+}
+.share-tabs{display:flex;gap:0;border:1px solid var(--border2);border-radius:4px;overflow:hidden;margin-bottom:12px;}
+.share-tab{
+  flex:1;font-family:'DM Mono',monospace;font-size:9px;letter-spacing:0.06em;
+  text-transform:uppercase;padding:6px 4px;text-align:center;cursor:pointer;
+  background:none;border:none;color:var(--text3);transition:all 0.15s;
+  border-right:1px solid var(--border2);
+}
+.share-tab:last-child{border-right:none;}
+.share-tab:hover{color:var(--text);background:rgba(255,255,255,0.03);}
+.share-tab.active{color:var(--accent);background:rgba(232,166,64,0.08);}
+.share-panel{display:none;}
+.share-panel.active{display:block;}
+.share-output{
+  font-family:'DM Sans',sans-serif;font-size:12px;line-height:1.65;
+  color:var(--text2);white-space:pre-wrap;
+  border:1px solid var(--border);border-radius:4px;padding:12px;
+  background:var(--surface);min-height:60px;
+}
+.share-char-count{
+  font-family:'DM Mono',monospace;font-size:9px;color:var(--text3);
+  text-align:right;margin-top:4px;
+}
+.share-char-count.near-limit{color:var(--accent);}
+.share-char-count.over-limit{color:var(--node-decision);}
+.share-footer{display:flex;align-items:center;gap:8px;margin-top:8px;}
+.share-generate-btn{
+  font-family:'DM Mono',monospace;font-size:9px;letter-spacing:0.08em;
+  text-transform:uppercase;color:var(--accent);background:none;
+  border:1px solid var(--accent);border-radius:3px;padding:5px 10px;
+  cursor:pointer;transition:all 0.15s;
+}
+.share-generate-btn:hover{background:rgba(232,166,64,0.1);}
+.share-generate-btn:disabled{opacity:0.5;cursor:default;}
+
+/* ── Portrait card modal (Day 4) ────────────────────────────── */
+.pc-modal-overlay{
+  display:none;position:fixed;inset:0;z-index:1000;
+  background:rgba(0,0,0,0.7);backdrop-filter:blur(4px);
+  align-items:center;justify-content:center;
+}
+.pc-modal-overlay.open{display:flex;}
+.pc-modal{
+  background:#000;border:1px solid #2a2a2a;border-radius:12px;
+  padding:36px 40px;width:560px;max-width:calc(100vw - 32px);
+  font-family:'DM Sans',sans-serif;color:#f0f0f0;position:relative;
+}
+.pc-header{
+  font-family:'DM Mono',monospace;font-size:11px;color:#e8a640;
+  letter-spacing:0.12em;text-transform:uppercase;margin-bottom:28px;
+}
+.pc-identity{
+  font-family:'Cormorant Garamond',serif;font-size:28px;font-weight:300;
+  line-height:1.2;color:#fff;margin-bottom:20px;letter-spacing:-0.01em;
+}
+.pc-insight{
+  font-family:'Cormorant Garamond',serif;font-size:16px;font-style:italic;
+  font-weight:300;line-height:1.6;color:#a0a0a0;margin-bottom:28px;
+  border-left:2px solid #e8a640;padding-left:16px;
+}
+.pc-tags{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:28px;}
+.pc-tag{
+  font-family:'DM Mono',monospace;font-size:10px;color:#707070;
+  border:1px solid #252525;padding:4px 10px;border-radius:3px;letter-spacing:0.06em;
+}
+.pc-footer{
+  font-family:'DM Mono',monospace;font-size:9px;color:#404040;
+  letter-spacing:0.1em;text-transform:uppercase;margin-bottom:24px;
+}
+.pc-actions{display:flex;gap:8px;flex-wrap:wrap;}
+.pc-action-btn{
+  font-family:'DM Mono',monospace;font-size:9px;letter-spacing:0.08em;
+  text-transform:uppercase;padding:7px 14px;border-radius:3px;cursor:pointer;
+  border:1px solid #2a2a2a;background:none;color:#a0a0a0;transition:all 0.15s;
+}
+.pc-action-btn:hover{border-color:#e8a640;color:#e8a640;}
+.pc-action-btn.copied{border-color:#10b981;color:#10b981;}
+.pc-action-btn.disabled{opacity:0.35;cursor:default;pointer-events:none;}
+.pc-close{
+  position:absolute;top:14px;right:16px;background:none;border:none;
+  color:#404040;font-size:18px;cursor:pointer;padding:4px;line-height:1;
+}
+.pc-close:hover{color:#a0a0a0;}
 </style>
 </head>
 <body>
@@ -709,12 +816,87 @@ svg .node-g:active{cursor:grabbing;}
     <!-- ── INSIGHT PANES (one shown at a time) ── -->
     <div class="insight-pane" id="ipane-strength" style="display:none;">
       <div class="oc-text" id="insightText"></div>
+      <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;" id="insightActionRow">
+        <button class="copy-btn" id="copyInsightBtn"
+          onclick="copyWithTracking(document.getElementById('insightText').innerText,'copy_insight',{is_regenerated:_regenCount>0,regeneration_count:_regenCount},this)">
+          Copy
+        </button>
+        <button class="copy-btn" id="regenInsightBtn" onclick="regenerateInsight()">↺ Regenerate</button>
+        <button class="copy-btn" id="restoreInsightBtn" style="display:none;" onclick="restorePreviousInsight()">← Previous</button>
+      </div>
     </div>
     <div class="insight-pane" id="ipane-directions" style="display:none;">
       <div id="bodyDirections"></div>
     </div>
     <div class="insight-pane" id="ipane-portrait" style="display:none;">
       <div id="bodyPortrait"></div>
+
+      <!-- Copy celebration line + Share Your Story section — shown once portrait is populated -->
+      <div id="shareStorySection" style="display:none;">
+        <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;">
+          <button class="copy-btn" id="copyPortraitBtn"
+            onclick="copyWithTracking(
+              document.getElementById('bodyPortrait').innerText,
+              'copy_portrait',{},this)">
+            Copy Portrait
+          </button>
+          <button class="copy-btn" onclick="openPortraitModal()">◈ Portrait Card</button>
+        </div>
+
+        <div class="share-story-section">
+          <div class="share-story-header">Share Your Story</div>
+          <div class="share-tabs">
+            <button class="share-tab active" id="stab-bio"       onclick="switchShareTab('bio')">Short Bio</button>
+            <button class="share-tab"        id="stab-linkedin"  onclick="switchShareTab('linkedin')">LinkedIn</button>
+            <button class="share-tab"        id="stab-portrait"  onclick="switchShareTab('portrait')">Portrait Card</button>
+          </div>
+
+          <!-- Short Bio panel -->
+          <div class="share-panel active" id="spanel-bio">
+            <div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--text3);margin-bottom:8px;">
+              Use for: speaker bios, about pages, team profiles, email signatures
+            </div>
+            <div class="share-output" id="sBioOutput" style="display:none;"></div>
+            <div class="share-footer" id="sBioFooter" style="display:none;">
+              <button class="copy-btn"
+                onclick="copyWithTracking(document.getElementById('sBioOutput').textContent,'copy_short_bio',{},this)">
+                Copy Bio
+              </button>
+            </div>
+            <div style="margin-top:8px;">
+              <button class="share-generate-btn" id="sgenBioBtn" onclick="generateShortBio()">✦ Generate Short Bio</button>
+            </div>
+          </div>
+
+          <!-- LinkedIn panel -->
+          <div class="share-panel" id="spanel-linkedin">
+            <div class="share-output" id="sLinkedInOutput" style="display:none;"></div>
+            <div class="share-char-count" id="sLinkedInCount" style="display:none;"></div>
+            <div class="share-footer" id="sLinkedInFooter" style="display:none;">
+              <button class="copy-btn"
+                onclick="copyWithTracking(
+                  document.getElementById('sLinkedInOutput').textContent,
+                  'copy_linkedin_summary',
+                  {character_count:document.getElementById('sLinkedInOutput').textContent.length},
+                  this)">
+                Copy
+              </button>
+            </div>
+            <div style="margin-top:8px;">
+              <button class="share-generate-btn" id="sgenLinkedInBtn" onclick="generateLinkedIn()">✦ Generate LinkedIn Summary</button>
+            </div>
+          </div>
+
+          <!-- Portrait Card panel -->
+          <div class="share-panel" id="spanel-portrait">
+            <div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--text3);margin-bottom:10px;line-height:1.6;">
+              A designed card with your identity reframe, core strength, and skill tags.<br>
+              Copy as text or download as a shareable image.
+            </div>
+            <button class="share-generate-btn" onclick="openPortraitModal()">◈ Open Portrait Card</button>
+          </div>
+        </div>
+      </div>
     </div>
     <div class="insight-pane" id="ipane-survey" style="display:none;">
       <div id="bodySurvey"></div>
@@ -1444,7 +1626,14 @@ function restoreSession() {
     // Reveal tabs for any insight that has content, then restore active state
     if (cs.strength?.html)   { document.getElementById('insightText').innerHTML    = cs.strength.html;   showCard('cardStrength',   false); if (!cs.strength.active)   collapseCard('cardStrength'); }
     if (cs.directions?.html) { document.getElementById('bodyDirections').innerHTML = cs.directions.html; showCard('cardDirections', false); if (!cs.directions.active) collapseCard('cardDirections'); }
-    if (cs.portrait?.html)   { document.getElementById('bodyPortrait').innerHTML   = cs.portrait.html;   showCard('cardPortrait',   false); if (!cs.portrait.active)   collapseCard('cardPortrait'); }
+    if (cs.portrait?.html)   {
+      document.getElementById('bodyPortrait').innerHTML = cs.portrait.html;
+      showCard('cardPortrait', false);
+      if (!cs.portrait.active) collapseCard('cardPortrait');
+      // Restore Share Your Story section
+      const _sssR = document.getElementById('shareStorySection');
+      if (_sssR) _sssR.style.display = '';
+    }
     // Restore resumes tab visibility
     if (cs.resumes?.visible) {
       const rt = document.getElementById('itab-resumes');
@@ -1924,6 +2113,9 @@ async function showFinalReveal() {
     collapseCard('cardDirections');
     await sleep(200);
     showCard('cardPortrait');
+    // Reveal Share Your Story section now that portrait is ready
+    const _sss = document.getElementById('shareStorySection');
+    if (_sss) _sss.style.display = '';
 
     addMsg('system', `Your Career Narrative is ready — tap the <strong>Career Narrative</strong> tab above to read it, or use the tabs to explore Core Strength and Career Priorities.`);
     setProgress(100);
@@ -2811,6 +3003,275 @@ function _deactivateInsightTab(key) {
   const qaTab = document.getElementById('itab-qa');
   if (qaTab && qaTab.style.display !== 'none') qaTab.classList.add('active');
 }
+
+// ═══════════════════════════════════════════════════════════════
+// ── COPY TRACKING (Day 1) ────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════
+
+/**
+ * Copy text to clipboard, flash visual feedback on btnEl, and fire a
+ * tracking event. The tracking fetch is fire-and-forget — never awaited,
+ * never throws to the caller.
+ */
+async function copyWithTracking(text, eventName, metadata = {}, btnEl = null) {
+  try {
+    await navigator.clipboard.writeText(text);
+  } catch {
+    // Fallback for older browsers / non-HTTPS
+    const ta = document.createElement('textarea');
+    ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
+    document.body.appendChild(ta); ta.select();
+    document.execCommand('copy'); document.body.removeChild(ta);
+  }
+
+  // Visual feedback — revert after 1.5 s
+  if (btnEl) {
+    const orig = btnEl.textContent;
+    btnEl.textContent = '✓ Copied';
+    btnEl.classList.add('copied');
+    setTimeout(() => { btnEl.textContent = orig; btnEl.classList.remove('copied'); }, 1500);
+  }
+
+  // Fire-and-forget tracking — never block the copy action
+  const token = _getToken();
+  if (token) {
+    fetch(`${BACKEND_URL}/api/v1/events/copy`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+      body: JSON.stringify({
+        session_id: S().session_id ?? null,
+        event_name: eventName,
+        metadata: {
+          ...metadata,
+          session_step: S().step ?? 0,
+        },
+      }),
+    }).catch(() => {});
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// ── REGENERATE INSIGHT (Day 2) ───────────────────────────────
+// ═══════════════════════════════════════════════════════════════
+
+// State for restore-previous feature
+let _previousInsightHtml = null;
+let _previousInsightText = null;
+let _regenCount = 0;
+
+async function regenerateInsight() {
+  const insightEl = document.getElementById('insightText');
+  const regenBtn  = document.getElementById('regenInsightBtn');
+  const restoreBtn = document.getElementById('restoreInsightBtn');
+  if (!insightEl || !regenBtn) return;
+
+  // Capture current insight before overwriting
+  const currentHtml = insightEl.innerHTML;
+  const currentText = insightEl.innerText || insightEl.textContent || '';
+  if (!currentText.trim()) return;
+
+  regenBtn.textContent = '↻ Refreshing…';
+  regenBtn.classList.add('loading');
+  regenBtn.disabled = true;
+
+  try {
+    const resp = await callBackend('claude/insight/regenerate', {
+      session_id: S().session_id,
+      previous_insight: currentText.trim(),
+    });
+
+    const newInsight = resp.strength?.insight || '';
+    if (!newInsight) throw new Error('Empty regeneration response');
+
+    // Save previous for restore
+    _previousInsightHtml = currentHtml;
+    _previousInsightText = currentText.trim();
+    _regenCount++;
+
+    // Write new insight with same bold conversion
+    insightEl.innerHTML = newInsight.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+
+    // Show restore button
+    if (restoreBtn) restoreBtn.style.display = '';
+
+    saveDebounced(400);
+  } catch (err) {
+    console.error('[regen]', err);
+    regenBtn.textContent = '✗ Failed';
+    setTimeout(() => {
+      regenBtn.textContent = '↺ Regenerate';
+      regenBtn.classList.remove('loading');
+      regenBtn.disabled = false;
+    }, 2000);
+    return;
+  }
+
+  regenBtn.textContent = '↺ Regenerate';
+  regenBtn.classList.remove('loading');
+  regenBtn.disabled = false;
+}
+
+function restorePreviousInsight() {
+  const insightEl  = document.getElementById('insightText');
+  const restoreBtn = document.getElementById('restoreInsightBtn');
+  if (!insightEl || !_previousInsightHtml) return;
+
+  insightEl.innerHTML = _previousInsightHtml;
+  _previousInsightHtml = null;
+  _previousInsightText = null;
+  if (restoreBtn) restoreBtn.style.display = 'none';
+  saveDebounced(400);
+}
+
+// ═══════════════════════════════════════════════════════════════
+// ── SHARE YOUR STORY (Day 3 — LinkedIn + Bio) ────────────────
+// ═══════════════════════════════════════════════════════════════
+
+let _shareActiveTab = 'bio'; // 'bio' | 'linkedin' | 'portrait'
+
+function switchShareTab(tab) {
+  _shareActiveTab = tab;
+  ['bio','linkedin','portrait'].forEach(t => {
+    const tabEl   = document.getElementById('stab-' + t);
+    const panelEl = document.getElementById('spanel-' + t);
+    if (tabEl)   { tabEl.classList.toggle('active', t === tab); }
+    if (panelEl) { panelEl.classList.toggle('active', t === tab); }
+  });
+}
+
+async function generateShortBio() {
+  const genBtn  = document.getElementById('sgenBioBtn');
+  const outputEl = document.getElementById('sBioOutput');
+  if (!genBtn || !outputEl) return;
+
+  genBtn.disabled = true; genBtn.textContent = '✦ Generating…';
+  try {
+    const resp = await callBackend('claude/short-bio', { session_id: S().session_id });
+    const bio = resp.bio || '';
+    outputEl.textContent = bio;
+    outputEl.style.display = '';
+    document.getElementById('sBioFooter').style.display = 'flex';
+  } catch (err) {
+    outputEl.textContent = `Error: ${err.message}`;
+    outputEl.style.display = '';
+  }
+  genBtn.textContent = '↺ Regenerate'; genBtn.disabled = false;
+}
+
+async function generateLinkedIn() {
+  const genBtn   = document.getElementById('sgenLinkedInBtn');
+  const outputEl = document.getElementById('sLinkedInOutput');
+  const countEl  = document.getElementById('sLinkedInCount');
+  if (!genBtn || !outputEl) return;
+
+  genBtn.disabled = true; genBtn.textContent = '✦ Generating…';
+  try {
+    const resp = await callBackend('claude/linkedin-summary', { session_id: S().session_id });
+    const summary = resp.summary || '';
+    outputEl.textContent = summary;
+    outputEl.style.display = '';
+    updateLinkedInCount(summary.length);
+    document.getElementById('sLinkedInFooter').style.display = 'flex';
+  } catch (err) {
+    outputEl.textContent = `Error: ${err.message}`;
+    outputEl.style.display = '';
+  }
+  genBtn.textContent = '↺ Regenerate'; genBtn.disabled = false;
+}
+
+function updateLinkedInCount(len) {
+  const countEl = document.getElementById('sLinkedInCount');
+  if (!countEl) return;
+  countEl.style.display = '';
+  countEl.textContent = `${len} / 2,600 characters`;
+  countEl.className = 'share-char-count' + (len > 2400 ? ' over-limit' : len > 2100 ? ' near-limit' : '');
+}
+
+// ═══════════════════════════════════════════════════════════════
+// ── PORTRAIT CARD MODAL (Day 4) ──────────────────────────────
+// ═══════════════════════════════════════════════════════════════
+
+function openPortraitModal() {
+  const session   = S();
+  const portrait  = session.insights?.portrait  ?? {};
+  const strength  = session.insights?.strength  ?? {};
+  const graph     = session.graphData            ?? { nodes: [], edges: [] };
+
+  const identity = portrait.identity || strength.identity_reframe || '';
+  const insight  = strength.insight  || '';
+  const topTags  = graph.nodes
+    .filter(n => n.weight >= 2 && n.type === 'skill')
+    .slice(0, 6)
+    .map(n => n.label);
+
+  document.getElementById('pcIdentity').textContent = identity;
+  document.getElementById('pcInsight').textContent  = insight.replace(/\*\*(.*?)\*\*/g, '$1');
+  document.getElementById('pcTags').innerHTML =
+    topTags.map(t => `<span class="pc-tag">${t}</span>`).join('');
+
+  // Reset action buttons
+  const copyBtn = document.getElementById('pcCopyTextBtn');
+  if (copyBtn) { copyBtn.textContent = 'Copy Text'; copyBtn.classList.remove('copied'); }
+
+  document.getElementById('portraitCardModal').classList.add('open');
+}
+
+function closePortraitModal() {
+  document.getElementById('portraitCardModal').classList.remove('open');
+}
+
+function copyPortraitAsText() {
+  const session  = S();
+  const portrait = session.insights?.portrait  ?? {};
+  const strength = session.insights?.strength  ?? {};
+  const graph    = session.graphData            ?? { nodes: [], edges: [] };
+
+  const identity = portrait.identity || strength.identity_reframe || '';
+  const insight  = (strength.insight || '').replace(/\*\*(.*?)\*\*/g, '$1');
+  const tags     = graph.nodes
+    .filter(n => n.weight >= 2 && n.type === 'skill')
+    .slice(0, 6).map(n => n.label).join('  ·  ');
+
+  const text = [identity, `"${insight}"`, tags, 'careeros.app'].filter(Boolean).join('\n\n');
+
+  const btn = document.getElementById('pcCopyTextBtn');
+  copyWithTracking(text, 'copy_portrait_card_text', { identity: identity.slice(0, 60) }, btn);
+}
+
+async function downloadPortraitImage() {
+  const btn = document.getElementById('pcDownloadBtn');
+  if (!btn) return;
+
+  if (typeof html2canvas === 'undefined') {
+    // Library unavailable — silent fallback to copy text
+    copyPortraitAsText();
+    return;
+  }
+
+  const orig = btn.textContent;
+  btn.textContent = 'Generating…'; btn.disabled = true;
+
+  try {
+    const cardEl = document.getElementById('portraitCardInner');
+    const canvas = await html2canvas(cardEl, { backgroundColor: '#000000', scale: 2 });
+    const link = document.createElement('a');
+    link.download = 'career-portrait.png';
+    link.href = canvas.toDataURL('image/png');
+    link.click();
+
+    // Track as download event
+    copyWithTracking('', 'download_portrait_image', {});
+  } catch {
+    // Silent failure — never interrupt the user
+  }
+
+  btn.textContent = orig; btn.disabled = false;
+}
+
+// ── Keyboard close for portrait modal ──
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') closePortraitModal();
+});
 
 // Reveal tab button + switch to it (called when insight data first arrives)
 function showCard(cardId, _animate=true) {
@@ -4017,5 +4478,22 @@ document.getElementById('btnSignUp').addEventListener('click', doSignUp);
 })();
 
 </script>
+
+<!-- ── Portrait card modal (Day 4) ─────────────────────────── -->
+<div class="pc-modal-overlay" id="portraitCardModal" onclick="if(event.target===this)closePortraitModal()">
+  <div class="pc-modal" id="portraitCardInner">
+    <button class="pc-close" onclick="closePortraitModal()">✕</button>
+    <div class="pc-header">◈ Career OS</div>
+    <div class="pc-identity" id="pcIdentity"></div>
+    <div class="pc-insight" id="pcInsight"></div>
+    <div class="pc-tags" id="pcTags"></div>
+    <div class="pc-footer">careeros.app</div>
+    <div class="pc-actions">
+      <button class="pc-action-btn" id="pcCopyTextBtn" onclick="copyPortraitAsText()">Copy Text</button>
+      <button class="pc-action-btn" id="pcDownloadBtn" onclick="downloadPortraitImage()">Download Image</button>
+      <button class="pc-action-btn disabled" title="Phase 2">Share Link · Phase 2</button>
+    </div>
+  </div>
+</div>
 </body>
 </html>

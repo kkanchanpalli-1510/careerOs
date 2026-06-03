@@ -26,9 +26,10 @@ export async function logUsage(p: {
 
 export async function checkRateLimit(userId: string, taskType: TaskType): Promise<boolean> {
   const limits: Partial<Record<TaskType, number>> = {
-    graph_extraction: 3, insight_generation: 5, branch_generation: 10,
-    gap_enrichment: 50, final_synthesis: 5, node_chat: 100, resume_projection: 20,
-    career_chat: 200,
+    graph_extraction: 3, insight_generation: 5, insight_regeneration: 20,
+    branch_generation: 10, gap_enrichment: 50, final_synthesis: 5,
+    node_chat: 100, resume_projection: 20, career_chat: 200,
+    linkedin_summary: 10, short_bio: 10,
     // career_summary_generation is an internal background task — no per-user limit
   };
   const limit = limits[taskType];

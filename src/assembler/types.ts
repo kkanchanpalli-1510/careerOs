@@ -3,13 +3,16 @@ export type RelationType = 'USED' | 'LED_TO' | 'DEMONSTRATED' | 'REQUIRED' | 'IN
 export type TaskType =
   | 'graph_extraction'
   | 'insight_generation'
+  | 'insight_regeneration'
   | 'branch_generation'
   | 'gap_enrichment'
   | 'final_synthesis'
   | 'node_chat'
   | 'resume_projection'
   | 'career_summary_generation'
-  | 'career_chat';
+  | 'career_chat'
+  | 'linkedin_summary'
+  | 'short_bio';
 
 export interface Node {
   id: string;
