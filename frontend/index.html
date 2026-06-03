@@ -3967,7 +3967,7 @@ document.getElementById('btnSignUp').addEventListener('click', doSignUp);
         aoCtx.fillStyle=n.color+Math.round(n.opacity*120).toString(16).padStart(2,'0'); aoCtx.fill();
       }
       aoCtx.font=`300 7px 'DM Mono',monospace`; aoCtx.textAlign='center';
-      aoCtx.fillStyle=hov?n.color+'cc':`rgba(50,65,90,${n.opacity*0.6})`;
+      aoCtx.fillStyle=hov?n.color+'ff':'rgba(190,210,240,0.72)';
       aoCtx.fillText(n.label,n.x,n.y+n.r+10);
     });
     aoAnimFrame=requestAnimationFrame(aoFrame);
