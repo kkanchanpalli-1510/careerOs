@@ -48,7 +48,7 @@ BANNED WORDS: passionate, seasoned, proven, dynamic, results-driven, thought lea
 
 Requirements:
 - 100–150 words maximum
-- Third person voice ("Alex builds..." not "I build...")
+- Third person voice. Do NOT use any person's name — use "They" throughout ("They build..." not "I build..."). Never invent or assume a name.
 - Two to three sentences:
   Sentence 1: Who they are at their core + what makes them distinctive. NOT a job title. Lead with the identity reframe.
   Sentence 2: Evidence — one or two specific outcomes or capabilities that ground the identity claim. At least one concrete signal.

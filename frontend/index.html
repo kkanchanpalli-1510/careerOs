@@ -1474,7 +1474,10 @@ function saveSessions() {
     S().cardStates = {
       strength:   { visible: document.getElementById('itab-strength')?.style.display   !== 'none', active: document.getElementById('ipane-strength')?.style.display   !== 'none', html: document.getElementById('insightText')?.innerHTML   || '' },
       directions: { visible: document.getElementById('itab-directions')?.style.display !== 'none', active: document.getElementById('ipane-directions')?.style.display !== 'none', html: document.getElementById('bodyDirections')?.innerHTML || '' },
-      portrait:   { visible: document.getElementById('itab-portrait')?.style.display   !== 'none', active: document.getElementById('ipane-portrait')?.style.display   !== 'none', html: document.getElementById('bodyPortrait')?.innerHTML   || '' },
+      portrait:   { visible: document.getElementById('itab-portrait')?.style.display   !== 'none', active: document.getElementById('ipane-portrait')?.style.display   !== 'none', html: document.getElementById('bodyPortrait')?.innerHTML   || '',
+                    shareStoryVisible: document.getElementById('shareStorySection')?.style.display !== 'none',
+                    shortBio:          document.getElementById('sBioOutput')?.textContent          || '',
+                    linkedinSummary:   document.getElementById('sLinkedInOutput')?.textContent     || '' },
       survey:     { visible: document.getElementById('itab-survey')?.style.display     !== 'none', active: document.getElementById('ipane-survey')?.style.display     !== 'none', html: '' },
       resumes:    { visible: document.getElementById('itab-resumes')?.style.display    !== 'none', active: document.getElementById('ipane-resumes')?.style.display    !== 'none', html: '' }
     };
@@ -1631,8 +1634,29 @@ function restoreSession() {
       showCard('cardPortrait', false);
       if (!cs.portrait.active) collapseCard('cardPortrait');
       // Restore Share Your Story section
-      const _sssR = document.getElementById('shareStorySection');
-      if (_sssR) _sssR.style.display = '';
+      if (cs.portrait.shareStoryVisible) {
+        const _sssR = document.getElementById('shareStorySection');
+        if (_sssR) _sssR.style.display = '';
+        // Restore Short Bio if previously generated
+        if (cs.portrait.shortBio) {
+          const bioEl = document.getElementById('sBioOutput');
+          if (bioEl) { bioEl.textContent = cs.portrait.shortBio; bioEl.style.display = ''; }
+          const bioFooter = document.getElementById('sBioFooter');
+          if (bioFooter) bioFooter.style.display = 'flex';
+          const bioBtn = document.getElementById('sgenBioBtn');
+          if (bioBtn) bioBtn.textContent = '↺ Regenerate';
+        }
+        // Restore LinkedIn Summary if previously generated
+        if (cs.portrait.linkedinSummary) {
+          const liEl = document.getElementById('sLinkedInOutput');
+          if (liEl) { liEl.textContent = cs.portrait.linkedinSummary; liEl.style.display = ''; }
+          const liFooter = document.getElementById('sLinkedInFooter');
+          if (liFooter) liFooter.style.display = 'flex';
+          const liBtn = document.getElementById('sgenLinkedInBtn');
+          if (liBtn) liBtn.textContent = '↺ Regenerate';
+          updateLinkedInCount(cs.portrait.linkedinSummary.length);
+        }
+      }
     }
     // Restore resumes tab visibility
     if (cs.resumes?.visible) {
