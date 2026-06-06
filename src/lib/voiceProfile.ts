@@ -3,6 +3,7 @@
 
 import { supabaseAdmin } from '../db/client';
 import { anthropic, MODEL } from './anthropic';
+import { triggerAutoRefine } from './autoRefine';
 
 export interface VoiceProfile {
   id: string;
@@ -221,6 +222,9 @@ Return JSON only:
       voice_note_version: profile.voice_note_version + 1,
       updated_at: new Date().toISOString(),
     }).eq('user_id', userId);
+
+    // Voice note rebuilt — trigger background refinement of all eligible outputs
+    triggerAutoRefine(userId, `voice_note_v${profile.voice_note_version + 1}`).catch(() => {});
   } catch {
     // Silent failure — voice rebuild is never on the critical path
   }

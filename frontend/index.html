@@ -609,6 +609,23 @@ svg .node-g:active{cursor:grabbing;}
 .share-generate-btn:hover{background:rgba(232,166,64,0.1);}
 .share-generate-btn:disabled{opacity:0.5;cursor:default;}
 
+/* ── Refinement nudge ───────────────────────────────────────── */
+.refine-nudge{
+  margin-top:10px;padding:10px 12px;
+  background:rgba(99,102,241,0.08);border:1px solid rgba(99,102,241,0.25);
+  border-radius:6px;font-family:'DM Mono',monospace;font-size:9px;
+  color:var(--text2);line-height:1.6;
+}
+.refine-nudge-title{color:#818cf8;letter-spacing:0.08em;margin-bottom:6px;}
+.refine-diff{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:8px 0;font-size:9px;}
+.refine-diff-col{padding:8px;background:var(--surface2);border-radius:4px;line-height:1.6;white-space:pre-wrap;word-break:break-word;max-height:120px;overflow-y:auto;}
+.refine-diff-label{font-size:8px;letter-spacing:0.1em;color:var(--text3);margin-bottom:4px;}
+.refine-actions{display:flex;gap:8px;margin-top:8px;}
+.refine-btn{font-family:'DM Mono',monospace;font-size:9px;padding:5px 10px;border-radius:4px;cursor:pointer;border:1px solid;transition:opacity 0.15s;}
+.refine-btn-accept{background:rgba(99,102,241,0.15);border-color:rgba(99,102,241,0.4);color:#818cf8;}
+.refine-btn-dismiss{background:transparent;border-color:var(--border2);color:var(--text3);}
+.refine-btn:hover{opacity:0.8;}
+
 /* ── Portrait card modal (Day 4) ────────────────────────────── */
 .pc-modal-overlay{
   display:none;position:fixed;inset:0;z-index:1000;
@@ -3238,6 +3255,103 @@ function updateLinkedInCount(len) {
 }
 
 // ═══════════════════════════════════════════════════════════════
+// ── REFINEMENT NUDGES ────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════
+
+const OUTPUT_LABELS = {
+  linkedin_summary: 'LinkedIn Summary',
+  short_bio: 'Short Bio',
+};
+
+const OUTPUT_PANEL_IDS = {
+  linkedin_summary: { outputEl: 'sLinkedInOutput', footerId: 'sLinkedInFooter', tabId: 'stab-linkedin' },
+  short_bio:        { outputEl: 'sBioOutput',      footerId: 'sBioFooter',      tabId: 'stab-bio'      },
+};
+
+function showRefinementNudges(sessionId, pending) {
+  Object.entries(pending || {}).forEach(([outputType, refinement]) => {
+    showRefinementNudge(sessionId, outputType, refinement);
+  });
+}
+
+function showRefinementNudge(sessionId, outputType, refinement) {
+  const ids = OUTPUT_PANEL_IDS[outputType];
+  if (!ids) return;
+
+  const outputEl = document.getElementById(ids.outputEl);
+  if (!outputEl || !outputEl.textContent.trim()) return; // output not visible yet
+
+  // Remove any existing nudge for this output type
+  const existing = document.getElementById(`refine-nudge-${outputType}`);
+  if (existing) existing.remove();
+
+  const label = OUTPUT_LABELS[outputType] || outputType;
+  const previous = refinement.previous || '';
+  const refined  = refinement.text || '';
+
+  const nudge = document.createElement('div');
+  nudge.className = 'refine-nudge';
+  nudge.id = `refine-nudge-${outputType}`;
+  nudge.innerHTML = `
+    <div class="refine-nudge-title">✦ Refined since your last session</div>
+    <div style="color:var(--text3);margin-bottom:4px;">
+      Your voice profile has improved. Here's what changed:
+    </div>
+    <div class="refine-diff">
+      <div>
+        <div class="refine-diff-label">BEFORE</div>
+        <div class="refine-diff-col">${escHtml(previous.slice(0, 300))}${previous.length > 300 ? '…' : ''}</div>
+      </div>
+      <div>
+        <div class="refine-diff-label">AFTER</div>
+        <div class="refine-diff-col">${escHtml(refined.slice(0, 300))}${refined.length > 300 ? '…' : ''}</div>
+      </div>
+    </div>
+    <div class="refine-actions">
+      <button class="refine-btn refine-btn-accept" onclick="acceptRefinement('${sessionId}','${outputType}',this)">
+        Use refined version
+      </button>
+      <button class="refine-btn refine-btn-dismiss" onclick="dismissRefinement('${sessionId}','${outputType}',this)">
+        Keep current
+      </button>
+    </div>`;
+
+  outputEl.parentNode.insertBefore(nudge, outputEl.nextSibling);
+}
+
+function escHtml(str) {
+  return String(str)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+async function acceptRefinement(sessionId, outputType, btn) {
+  btn.disabled = true; btn.textContent = '⋯ Applying';
+  try {
+    const res = await callBackend(`sessions/${sessionId}/refinements`, { output_type: outputType, action: 'accept' }, 'POST');
+    if (res.changed && res.text) {
+      // Update the visible output with the refined text
+      const ids = OUTPUT_PANEL_IDS[outputType];
+      const el = ids && document.getElementById(ids.outputEl);
+      if (el) {
+        el.textContent = res.text;
+        if (outputType === 'linkedin_summary') updateLinkedInCount(res.text.length);
+        saveDebounced(300);
+      }
+    }
+  } catch { /* silent */ }
+  document.getElementById(`refine-nudge-${outputType}`)?.remove();
+}
+
+async function dismissRefinement(sessionId, outputType, btn) {
+  btn.disabled = true;
+  try {
+    await callBackend(`sessions/${sessionId}/refinements`, { output_type: outputType, action: 'dismiss' }, 'POST');
+  } catch { /* silent */ }
+  document.getElementById(`refine-nudge-${outputType}`)?.remove();
+}
+
+// ═══════════════════════════════════════════════════════════════
 // ── PORTRAIT CARD MODAL (Day 4) ──────────────────────────────
 // ═══════════════════════════════════════════════════════════════
 
@@ -4261,6 +4375,12 @@ async function onAuthenticated(user) {
         if (Object.keys(cs).length) sessions[slot].cardStates = cs;
       }
     });
+
+    // Check for pending refinements on the primary session
+    const primary = backendSessions[0];
+    if (primary?.insights?.pending_refinements) {
+      setTimeout(() => showRefinementNudges(primary.id, primary.insights.pending_refinements), 1200);
+    }
 
     // Restore the UI — backend data is now merged with localStorage UI state.
     // Do NOT call saveSessions() here: the DOM still shows the start screen at this

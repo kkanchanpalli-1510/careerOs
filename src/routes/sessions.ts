@@ -135,6 +135,56 @@ router.patch('/:id/positions', async (req: Request, res: Response) => {
   res.json({ ok: true });
 });
 
+// ─── POST /sessions/:id/refinements — accept or dismiss a pending refinement ─
+// action='accept': swaps pending text → active, clears pending entry
+// action='dismiss': clears pending entry, keeps active text unchanged
+
+router.post('/:id/refinements', async (req: Request, res: Response) => {
+  const userId = uid(req);
+  const id = req.params.id as string;
+  const { output_type, action } = req.body;
+
+  if (!output_type || !['accept', 'dismiss'].includes(action)) {
+    res.status(400).json({ error: 'output_type and action (accept|dismiss) required' }); return;
+  }
+
+  const session = await validateSessionOwnership(id, userId);
+  if (!session) { res.status(403).json({ error: 'Forbidden' }); return; }
+
+  const insights: Record<string, unknown> = session.insights ?? {};
+  const pending = (insights.pending_refinements ?? {}) as Record<string, { text: string; previous: string; refined_at: string }>;
+  const refinement = pending[output_type];
+
+  if (!refinement) {
+    res.json({ ok: true, changed: false }); return;
+  }
+
+  const updatedInsights = { ...insights };
+
+  if (action === 'accept') {
+    // Promote refined text → active output
+    updatedInsights[output_type] = refinement.text;
+    if (output_type === 'linkedin_summary') {
+      updatedInsights.linkedin_summary_generated_at = refinement.refined_at;
+    } else if (output_type === 'short_bio') {
+      updatedInsights.short_bio_generated_at = refinement.refined_at;
+    }
+  }
+
+  // Clear the pending entry regardless of accept/dismiss
+  const newPending = { ...pending };
+  delete newPending[output_type];
+  updatedInsights.pending_refinements = Object.keys(newPending).length ? newPending : null;
+
+  await updateSession(id, userId, { insights: updatedInsights });
+
+  res.json({
+    ok: true,
+    changed: action === 'accept',
+    ...(action === 'accept' ? { text: refinement.text } : {}),
+  });
+});
+
 // ─── DELETE /sessions/:id — delete a session ─────────────────
 
 router.delete('/:id', async (req: Request, res: Response) => {
