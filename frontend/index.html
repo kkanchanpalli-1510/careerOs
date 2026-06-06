@@ -1633,29 +1633,27 @@ function restoreSession() {
       document.getElementById('bodyPortrait').innerHTML = cs.portrait.html;
       showCard('cardPortrait', false);
       if (!cs.portrait.active) collapseCard('cardPortrait');
-      // Restore Share Your Story section
-      if (cs.portrait.shareStoryVisible) {
-        const _sssR = document.getElementById('shareStorySection');
-        if (_sssR) _sssR.style.display = '';
-        // Restore Short Bio if previously generated
-        if (cs.portrait.shortBio) {
-          const bioEl = document.getElementById('sBioOutput');
-          if (bioEl) { bioEl.textContent = cs.portrait.shortBio; bioEl.style.display = ''; }
-          const bioFooter = document.getElementById('sBioFooter');
-          if (bioFooter) bioFooter.style.display = 'flex';
-          const bioBtn = document.getElementById('sgenBioBtn');
-          if (bioBtn) bioBtn.textContent = '↺ Regenerate';
-        }
-        // Restore LinkedIn Summary if previously generated
-        if (cs.portrait.linkedinSummary) {
-          const liEl = document.getElementById('sLinkedInOutput');
-          if (liEl) { liEl.textContent = cs.portrait.linkedinSummary; liEl.style.display = ''; }
-          const liFooter = document.getElementById('sLinkedInFooter');
-          if (liFooter) liFooter.style.display = 'flex';
-          const liBtn = document.getElementById('sgenLinkedInBtn');
-          if (liBtn) liBtn.textContent = '↺ Regenerate';
-          updateLinkedInCount(cs.portrait.linkedinSummary.length);
-        }
+      // Always show Share Your Story section when portrait exists
+      const _sssR = document.getElementById('shareStorySection');
+      if (_sssR) _sssR.style.display = '';
+      // Restore Short Bio if previously generated
+      if (cs.portrait.shortBio) {
+        const bioEl = document.getElementById('sBioOutput');
+        if (bioEl) { bioEl.textContent = cs.portrait.shortBio; bioEl.style.display = ''; }
+        const bioFooter = document.getElementById('sBioFooter');
+        if (bioFooter) bioFooter.style.display = 'flex';
+        const bioBtn = document.getElementById('sgenBioBtn');
+        if (bioBtn) bioBtn.textContent = '↺ Regenerate';
+      }
+      // Restore LinkedIn Summary if previously generated
+      if (cs.portrait.linkedinSummary) {
+        const liEl = document.getElementById('sLinkedInOutput');
+        if (liEl) { liEl.textContent = cs.portrait.linkedinSummary; liEl.style.display = ''; }
+        const liFooter = document.getElementById('sLinkedInFooter');
+        if (liFooter) liFooter.style.display = 'flex';
+        const liBtn = document.getElementById('sgenLinkedInBtn');
+        if (liBtn) liBtn.textContent = '↺ Regenerate';
+        updateLinkedInCount(cs.portrait.linkedinSummary.length);
       }
     }
     // Restore resumes tab visibility
@@ -3175,6 +3173,7 @@ async function generateShortBio() {
     outputEl.textContent = bio;
     outputEl.style.display = '';
     document.getElementById('sBioFooter').style.display = 'flex';
+    saveDebounced(300);
   } catch (err) {
     outputEl.textContent = `Error: ${err.message}`;
     outputEl.style.display = '';
@@ -3196,6 +3195,7 @@ async function generateLinkedIn() {
     outputEl.style.display = '';
     updateLinkedInCount(summary.length);
     document.getElementById('sLinkedInFooter').style.display = 'flex';
+    saveDebounced(300);
   } catch (err) {
     outputEl.textContent = `Error: ${err.message}`;
     outputEl.style.display = '';
