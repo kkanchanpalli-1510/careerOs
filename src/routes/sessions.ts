@@ -116,6 +116,25 @@ router.patch('/:id/graph', async (req: Request, res: Response) => {
   res.json({ node, summary_version: (session.summary_version ?? 0) + 1 });
 });
 
+// ─── PATCH /sessions/:id/positions — persist graph layout ────────────────────
+
+router.patch('/:id/positions', async (req: Request, res: Response) => {
+  const userId = uid(req);
+  const id = req.params.id as string;
+  const { positions } = req.body;
+
+  if (!positions || typeof positions !== 'object') {
+    res.status(400).json({ error: 'positions object required' }); return;
+  }
+
+  const session = await validateSessionOwnership(id, userId);
+  if (!session) { res.status(403).json({ error: 'Forbidden' }); return; }
+
+  await updateSession(id, userId, { node_positions: positions });
+
+  res.json({ ok: true });
+});
+
 // ─── DELETE /sessions/:id — delete a session ─────────────────
 
 router.delete('/:id', async (req: Request, res: Response) => {

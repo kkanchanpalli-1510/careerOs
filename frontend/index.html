@@ -1554,6 +1554,32 @@ function saveDebounced(delay=800) {
   _saveTimer = setTimeout(saveSessions, delay);
 }
 
+let _posTimer = null;
+function savePositionsDebounced() {
+  clearTimeout(_posTimer);
+  _posTimer = setTimeout(async () => {
+    const sid = S().session_id;
+    if (!sid) return;
+    // Snapshot current positions from live SVG
+    const positions = {};
+    Object.keys(S().svgNodeEls).forEach(id => {
+      const el = S().svgNodeEls[id];
+      if (el?.circle) {
+        positions[id] = {
+          x: parseFloat(el.circle.getAttribute('cx')),
+          y: parseFloat(el.circle.getAttribute('cy')),
+        };
+      }
+    });
+    if (!Object.keys(positions).length) return;
+    try {
+      await callBackend(`sessions/${sid}/positions`, { positions }, 'PATCH');
+    } catch {
+      // Silent — position persistence is best-effort
+    }
+  }, 3000);
+}
+
 // Proxy getters/setters so existing code works without changes
 function S() { return sessions[currentSession]; }
 Object.defineProperty(window, 'graphData',      { get:()=>S().graphData,      set:v=>{ S().graphData=v; saveDebounced(); }});
@@ -3852,6 +3878,9 @@ function enableDrag(g, nodeId, getPos, setPos) {
       document.removeEventListener('mousemove', onMove);
       document.removeEventListener('mouseup', onUp);
 
+      // Persist layout to backend 3s after drag ends
+      if (wasMoved) savePositionsDebounced();
+
       // If barely moved, treat as click → open panel
       if (!wasMoved) openNodePanel(nodeId);
     };
@@ -4163,11 +4192,15 @@ async function onAuthenticated(user) {
     ['A', 'B'].forEach((slot, idx) => {
       const bs = backendSessions[idx];
       if (bs) {
-        sessions[slot].session_id = bs.id;
-        sessions[slot].graphData   = bs.graph_data   || null;
-        sessions[slot].answers     = bs.answers       || [];
-        sessions[slot].enrichCount = bs.enrich_count  || 0;
+        sessions[slot].session_id    = bs.id;
+        sessions[slot].graphData     = bs.graph_data      || null;
+        sessions[slot].answers       = bs.answers          || [];
+        sessions[slot].enrichCount   = bs.enrich_count     || 0;
         sessions[slot].selectedBranch = bs.selected_branch ?? null;
+        // Restore persisted graph layout from backend (takes precedence over localStorage)
+        if (bs.node_positions && Object.keys(bs.node_positions).length) {
+          sessions[slot].nodePositions = bs.node_positions;
+        }
 
         // Derive actual step from what's been generated (backend only saves step:1 from /extract;
         // remaining steps are inferred from which insights exist)
