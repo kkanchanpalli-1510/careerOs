@@ -2,8 +2,10 @@ import { Router, Request, Response } from 'express';
 import { requireAuth, uid } from '../middleware/auth';
 import { supabaseAdmin } from '../db/client';
 import { CareerGraph } from '../assembler/types';
-import { detectStageProfile } from '../assembler/summary';
+import { detectStageProfile, buildDeterministicSkeleton } from '../assembler/summary';
 import { STAGE_QUESTIONS } from '../assembler/tasks/gapEnrichment';
+import { validateSessionOwnership, updateSession } from '../db/sessions';
+import { observeNodeEdit } from '../assembler/tasks/voiceExtraction';
 
 const router = Router();
 router.use(requireAuth);
@@ -64,6 +66,54 @@ router.get('/:id/questions', async (req: Request, res: Response) => {
     titleCapabilityGap,
     questions: STAGE_QUESTIONS[stage],
   });
+});
+
+// ─── PATCH /sessions/:id/graph — update a single node's editable fields ──────
+// Accepts the full updated graph_data. Only label, detail, and year are
+// user-editable — all other node fields (type, weight, edges) are immutable
+// from this endpoint to prevent clients from corrupting graph structure.
+
+router.patch('/:id/graph', async (req: Request, res: Response) => {
+  const userId = uid(req);
+  const id = req.params.id as string;
+  const { node_id, label, detail, year } = req.body;
+
+  if (!node_id) {
+    res.status(400).json({ error: 'node_id required' }); return;
+  }
+
+  const session = await validateSessionOwnership(id, userId);
+  if (!session) { res.status(403).json({ error: 'Forbidden' }); return; }
+
+  const graph: CareerGraph = session.graph_data;
+  if (!graph) { res.status(409).json({ error: 'No graph on this session' }); return; }
+
+  const node = graph.nodes.find(n => n.id === node_id);
+  if (!node) { res.status(404).json({ error: 'Node not found' }); return; }
+
+  const originalLabel = node.label;
+
+  // Apply only whitelisted editable fields
+  if (label !== undefined) node.label  = String(label).trim()  || node.label;
+  if (detail !== undefined) node.detail = String(detail).trim() || node.detail;
+  if (year   !== undefined) node.year   = String(year).trim()   || node.year;
+
+  // Rebuild deterministic skeleton since node content changed
+  const stageProfile = detectStageProfile(graph);
+  const skeleton = buildDeterministicSkeleton(graph, session.insights, session.selected_branch, stageProfile);
+
+  await updateSession(id, userId, {
+    graph_data:      graph,
+    career_summary:  skeleton,
+    summary_version: (session.summary_version ?? 0) + 1,
+  });
+
+  // Fire-and-forget voice observation when label changes
+  if (label !== undefined && label !== originalLabel) {
+    observeNodeEdit(userId, originalLabel, node.label).catch(() => {});
+  }
+
+  res.json({ node, summary_version: (session.summary_version ?? 0) + 1 });
 });
 
 // ─── DELETE /sessions/:id — delete a session ─────────────────

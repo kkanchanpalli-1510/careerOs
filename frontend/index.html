@@ -1340,13 +1340,13 @@ function _getToken() {
   return null;
 }
 
-async function callBackend(path, body = {}) {
-  console.log('[career-os] callBackend:', path);
+async function callBackend(path, body = {}, method = 'POST') {
+  console.log('[career-os] callBackend:', method, path);
   const token = _getToken();
   console.log('[career-os] token:', token ? 'valid' : 'NULL — not authenticated');
   if (!token) throw new Error('Not authenticated — please sign out and sign in again');
   const res = await fetch(`${BACKEND_URL}/api/v1/${path}`, {
-    method: 'POST',
+    method,
     headers: {
       'Content-Type': 'application/json',
       'Authorization': `Bearer ${token}`
@@ -3942,14 +3942,18 @@ function closeNodePanel() {
   if (q) applyGraphSearch(q); else resetHighlight();
 }
 
-function saveNodeEdits() {
+async function saveNodeEdits() {
   if (!selectedNodeId || !S().graphData) return;
   const node = S().graphData?.nodes.find(n => n.id === selectedNodeId);
   if (!node) return;
 
-  node.label = document.getElementById('nodePanelLabel').value.trim() || node.label;
-  node.detail = document.getElementById('nodePanelDetail').value.trim() || node.detail;
-  node.year = document.getElementById('nodePanelYear').value.trim() || node.year;
+  const newLabel  = document.getElementById('nodePanelLabel').value.trim()  || node.label;
+  const newDetail = document.getElementById('nodePanelDetail').value.trim() || node.detail;
+  const newYear   = document.getElementById('nodePanelYear').value.trim()   || node.year;
+
+  node.label  = newLabel;
+  node.detail = newDetail;
+  node.year   = newYear;
 
   // Update label on graph
   const el = S().svgNodeEls[selectedNodeId];
@@ -3957,17 +3961,33 @@ function saveNodeEdits() {
     el.text.textContent = node.label.length > 18 ? node.label.slice(0,17)+'…' : node.label;
   }
 
-  // Visual feedback
   const btn = document.querySelector('.node-save-btn');
-  btn.textContent = '✓ Saved';
-  btn.style.color = 'var(--green)';
-  btn.style.borderColor = 'var(--green)';
+  btn.textContent = '⋯ Saving';
+  btn.disabled = true;
+
+  // Persist to backend — updates graph_data and rebuilds career summary
+  try {
+    await callBackend(`sessions/${S().session_id}/graph`, {
+      node_id: selectedNodeId,
+      label:   newLabel,
+      detail:  newDetail,
+      year:    newYear,
+    }, 'PATCH');
+    btn.textContent = '✓ Saved';
+    btn.style.color = 'var(--green)';
+    btn.style.borderColor = 'var(--green)';
+  } catch {
+    btn.textContent = '✓ Saved locally';
+    btn.style.color = 'var(--text2)';
+  }
+
+  saveSessions(); // also update localStorage
+  btn.disabled = false;
   setTimeout(() => {
     btn.textContent = 'Save Changes';
     btn.style.color = 'var(--accent)';
     btn.style.borderColor = 'var(--accent)';
   }, 1500);
-  saveSessions(); // persist node edits
 }
 
 function highlightSingleNode(nodeId) {
