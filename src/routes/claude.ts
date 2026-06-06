@@ -8,6 +8,8 @@ import { appendNodeMessages } from '../db/conversations';
 import { buildDeterministicSkeleton, detectStageProfile } from '../assembler/summary';
 import { CareerGraph, InsightStrength, TaskType } from '../assembler/types';
 import { validateInsight } from '../assembler/tasks/insightGeneration';
+import { buildResumeVoicePrompt, updateVoiceFromAnswer } from '../assembler/tasks/voiceExtraction';
+import { initVoiceProfile, ResumeVoiceResult } from '../lib/voiceProfile';
 import type { Message } from '@anthropic-ai/sdk/resources/messages';
 
 const router = Router();
@@ -104,8 +106,28 @@ router.post('/extract', async (req: Request, res: Response) => {
       user_id: userId, task: 'graph_extraction', params: { resume_text },
     });
 
-    const response = await callClaude(userId, session_id, 'graph_extraction', pkg, 3000);
+    // Run graph extraction and voice extraction in parallel — both use resume text.
+    // Resume text is discarded after this block (never stored).
+    const voicePrompt = buildResumeVoicePrompt(resume_text);
+    const [response, voiceMsg] = await Promise.all([
+      callClaude(userId, session_id, 'graph_extraction', pkg, 3000),
+      anthropic.messages.create({
+        model: MODEL,
+        max_tokens: 400,
+        messages: [{ role: 'user', content: voicePrompt }],
+      }),
+    ]);
+
     const graph: CareerGraph = parseJsonResponse<CareerGraph>(response);
+
+    // Store voice profile async — never block the response on it
+    try {
+      const voiceText = (voiceMsg.content[0] as { type: string; text: string }).text.trim();
+      const voiceResult: ResumeVoiceResult = JSON.parse(voiceText.replace(/^```json\n?|```$/g, ''));
+      initVoiceProfile(userId, voiceResult).catch(() => {});
+    } catch {
+      // Voice extraction failure does not affect graph extraction
+    }
 
     const skeleton = buildDeterministicSkeleton(graph, null, null, detectStageProfile(graph));
     await updateSession(session_id, userId, {
@@ -242,6 +264,9 @@ router.post('/enrich', async (req: Request, res: Response) => {
       enrich_count: (session.enrich_count ?? 0) + 1,
       summary_version: (session.summary_version ?? 0) + 1,
     });
+
+    // Fire-and-forget voice update — answer text is high-signal for natural voice
+    updateVoiceFromAnswer(userId, answer, 'enrichment').catch(() => {});
 
     res.json({ new_nodes: enriched.nodes, new_edges: enriched.edges, metadata: pkg.metadata });
   } catch (err) {

@@ -163,15 +163,46 @@ export function buildDeterministicSkeleton(
   ].filter(Boolean).join(' ');
 }
 
-export function buildCareerSummary(session: {
-  graph_data: CareerGraph | null;
-  insights: SessionInsights | null;
-  selected_branch: number | null;
-  behavioral_pattern: string | null;
-}): string {
+export interface VoiceProfileSnippet {
+  confidence: number;
+  voice_note: string | null;
+  best_day_note: string | null;
+  task_adjustments: Record<string, string>;
+}
+
+export function buildCareerSummary(
+  session: {
+    graph_data: CareerGraph | null;
+    insights: SessionInsights | null;
+    selected_branch: number | null;
+    behavioral_pattern: string | null;
+  },
+  voiceProfile?: VoiceProfileSnippet | null
+): string {
   const graph = session.graph_data ?? { nodes: [], edges: [] };
   const stageProfile = detectStageProfile(graph);
   const skeleton = buildDeterministicSkeleton(graph, session.insights, session.selected_branch, stageProfile);
   const pattern = session.behavioral_pattern ?? '';
-  return [skeleton, pattern].filter(Boolean).join('\n');
+  const voice = voiceProfile && voiceProfile.confidence >= 0.4
+    ? buildVoiceContext(voiceProfile)
+    : '';
+  return [skeleton, pattern, voice].filter(Boolean).join('\n');
+}
+
+function buildVoiceContext(profile: VoiceProfileSnippet): string {
+  const lines: string[] = [];
+
+  if (profile.voice_note)
+    lines.push(`Voice: ${profile.voice_note}`);
+  if (profile.best_day_note)
+    lines.push(`Best day standard: ${profile.best_day_note}`);
+  if (profile.task_adjustments && Object.keys(profile.task_adjustments).length)
+    lines.push(`Task adjustments: ${JSON.stringify(profile.task_adjustments)}`);
+
+  lines.push(`Elevation rules:
+  1. Elevate ownership, preserve collaboration — direct ownership when person was primary agent, collective framing when genuinely shared.
+  2. Elevate specificity, preserve their vocabulary — use their words more precisely, not better-sounding synonyms.
+  3. Elevate confidence, preserve genuine humility — remove hedging around real achievements, keep shared credit where accurate.`);
+
+  return lines.join('\n');
 }
