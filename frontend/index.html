@@ -609,6 +609,15 @@ svg .node-g:active{cursor:grabbing;}
 .share-generate-btn:hover{background:rgba(232,166,64,0.1);}
 .share-generate-btn:disabled{opacity:0.5;cursor:default;}
 
+/* ── Feedback row ───────────────────────────────────────────── */
+.feedback-row{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:8px;padding-top:8px;border-top:1px solid var(--border);}
+.feedback-label{font-family:'DM Mono',monospace;font-size:8px;color:var(--text3);letter-spacing:0.08em;margin-right:2px;}
+.feedback-btn{font-family:'DM Mono',monospace;font-size:8px;padding:3px 8px;border-radius:3px;cursor:pointer;border:1px solid var(--border2);background:transparent;color:var(--text2);transition:all 0.15s;}
+.feedback-btn:hover{border-color:var(--accent);color:var(--accent);}
+.feedback-btn-yes{border-color:rgba(16,185,129,0.3);color:#10b981;}
+.feedback-btn-yes:hover{border-color:#10b981;background:rgba(16,185,129,0.08);}
+.feedback-btn.sent{opacity:0.5;cursor:default;pointer-events:none;}
+
 /* ── Refinement nudge ───────────────────────────────────────── */
 .refine-nudge{
   margin-top:10px;padding:10px 12px;
@@ -879,6 +888,13 @@ svg .node-g:active{cursor:grabbing;}
                 onclick="copyWithTracking(document.getElementById('sBioOutput').textContent,'copy_short_bio',{},this)">
                 Copy Bio
               </button>
+              <div class="feedback-row" id="fbRow-short_bio">
+                <span class="feedback-label">Feels right?</span>
+                <button class="feedback-btn" onclick="sendFeedback('short_bio','too_formal',this)">Too formal</button>
+                <button class="feedback-btn" onclick="sendFeedback('short_bio','too_casual',this)">Too casual</button>
+                <button class="feedback-btn" onclick="sendFeedback('short_bio','not_like_me',this)">Not like me</button>
+                <button class="feedback-btn feedback-btn-yes" onclick="sendFeedback('short_bio','accepted',this)">✓ This is me</button>
+              </div>
             </div>
             <div style="margin-top:8px;">
               <button class="share-generate-btn" id="sgenBioBtn" onclick="generateShortBio()">✦ Generate Short Bio</button>
@@ -898,6 +914,13 @@ svg .node-g:active{cursor:grabbing;}
                   this)">
                 Copy
               </button>
+              <div class="feedback-row" id="fbRow-linkedin_summary">
+                <span class="feedback-label">Feels right?</span>
+                <button class="feedback-btn" onclick="sendFeedback('linkedin_summary','too_formal',this)">Too formal</button>
+                <button class="feedback-btn" onclick="sendFeedback('linkedin_summary','too_casual',this)">Too casual</button>
+                <button class="feedback-btn" onclick="sendFeedback('linkedin_summary','not_like_me',this)">Not like me</button>
+                <button class="feedback-btn feedback-btn-yes" onclick="sendFeedback('linkedin_summary','accepted',this)">✓ This is me</button>
+              </div>
             </div>
             <div style="margin-top:8px;">
               <button class="share-generate-btn" id="sgenLinkedInBtn" onclick="generateLinkedIn()">✦ Generate LinkedIn Summary</button>
@@ -3252,6 +3275,30 @@ function updateLinkedInCount(len) {
   countEl.style.display = '';
   countEl.textContent = `${len} / 2,600 characters`;
   countEl.className = 'share-char-count' + (len > 2400 ? ' over-limit' : len > 2100 ? ' near-limit' : '');
+}
+
+// ═══════════════════════════════════════════════════════════════
+// ── FEEDBACK BUTTONS ─────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════
+
+async function sendFeedback(outputType, signal, btn) {
+  // Visual: dim all buttons in this row, mark sent one
+  const row = btn.closest('.feedback-row');
+  if (row) row.querySelectorAll('.feedback-btn').forEach(b => b.classList.add('sent'));
+
+  // Fire-and-forget to backend — never block UI on this
+  fetch(`${BACKEND_URL}/api/v1/events/feedback`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${_getToken()}`
+    },
+    body: JSON.stringify({
+      session_id: S().session_id,
+      output_type: outputType,
+      signal,
+    })
+  }).catch(() => {});
 }
 
 // ═══════════════════════════════════════════════════════════════
