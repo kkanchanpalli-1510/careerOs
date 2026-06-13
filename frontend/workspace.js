@@ -1,10 +1,9 @@
 // frontend/workspace.js
-import { getDefaultRoute } from '../src/lib/routing.js';
 import { renderNav } from './components/WorkspaceNav.js';
 import { loadNudgeBanner, showToast as _showToast } from './nudge.js';
 
 // ── API config ─────────────────────────────────────────────────────────────
-const BACKEND_URL  = 'https://ideal-grace-production-3e9f.up.railway.app';
+const BACKEND_URL  = 'https://careeros.up.railway.app';
 const _SUPA_PREFIX = 'rltvhwzyezkqidgcnbrw';
 
 export function getToken() {
@@ -148,10 +147,9 @@ async function init() {
     }
   }
 
-  // Session detection: redirect new users to graph
-  const target = getDefaultRoute(currentSession ?? {});
-  if (target === '/graph' && !location.pathname.startsWith('/graph')) {
-    location.replace('/graph');
+  // If no session and not in mock mode, go back to the main page to authenticate
+  if (!currentSession && !mock) {
+    location.replace('/');
     return;
   }
 
