@@ -6,6 +6,11 @@ import { buildInsightPrompt } from './tasks/insightGeneration';
 import { buildInsightRegenerationPrompt } from './tasks/insightRegeneration';
 import { buildLinkedInSummaryPrompt } from './tasks/linkedinSummary';
 import { buildShortBioPrompt } from './tasks/shortBio';
+import { buildArticleDraftPrompt } from './tasks/articleDraft';
+import { buildContentIdeasPrompt } from './tasks/contentIdeas';
+import { buildNodeEnrichmentPrompt } from './tasks/nodeEnrichmentPrompt';
+import { getVoiceProfile } from '../lib/voiceProfile';
+import { getConnectedNodes, buildNudgeReason } from '../lib/nodeEnrichment';
 import { supabaseAdmin } from '../db/client';
 
 const CEILINGS: Record<string, number> = {
@@ -21,6 +26,9 @@ const CEILINGS: Record<string, number> = {
   career_chat:               1400,
   linkedin_summary:          1200,
   short_bio:                  800,
+  article_draft:             2000,
+  content_ideas:              800,
+  node_enrichment_question:   400,
 };
 
 function tokens(text: string) { return Math.ceil(text.length / 4); }
@@ -103,6 +111,9 @@ export async function assembleContext(input: AssemblerInput): Promise<PromptPack
     case 'career_chat':               return assembleCareerChat(input);
     case 'linkedin_summary':          return assembleLinkedInSummary(input);
     case 'short_bio':                 return assembleShortBio(input);
+    case 'article_draft':             return assembleArticleDraft(input);
+    case 'content_ideas':             return assembleContentIdeas(input);
+    case 'node_enrichment_question':  return assembleNodeEnrichmentQuestion(input);
     default: throw new Error(`AssemblerError: unknown task ${(input as never as { task: string }).task}`);
   }
 }
@@ -612,6 +623,74 @@ async function assembleShortBio(input: AssemblerInput): Promise<PromptPackage> {
     ...pkg,
     estimated_tokens: Math.min(pkg.estimated_tokens, CEILINGS.short_bio),
     cache_key: `bio:${session_id}:v${session.summary_version}`,
+    metadata: { ...pkg.metadata, summary_version: session.summary_version ?? 0 },
+  };
+}
+
+// ─── 12. article_draft ───────────────────────────────────────
+
+async function assembleArticleDraft(input: AssemblerInput): Promise<PromptPackage> {
+  const { session_id, user_thoughts } = input.params as { session_id: string; user_thoughts: string };
+  const session = await getSession(session_id, input.user_id);
+  if (!session) throw new Error('AssemblerError: session not found');
+
+  const stageProfile = detectStageProfile(session.graph_data ?? { nodes: [], edges: [] });
+  const voiceProfile = await getVoiceProfile(input.user_id).catch(() => null);
+  const pkg = buildArticleDraftPrompt(session, user_thoughts, stageProfile, voiceProfile);
+
+  return {
+    ...pkg,
+    estimated_tokens: Math.min(pkg.estimated_tokens, CEILINGS.article_draft),
+    cache_key: `article_draft:${session_id}:${Date.now()}`,
+    metadata: { ...pkg.metadata, summary_version: session.summary_version ?? 0 },
+  };
+}
+
+// ─── 13. content_ideas ───────────────────────────────────────
+
+async function assembleContentIdeas(input: AssemblerInput): Promise<PromptPackage> {
+  const { session_id } = input.params as { session_id: string };
+  const session = await getSession(session_id, input.user_id);
+  if (!session) throw new Error('AssemblerError: session not found');
+
+  const graph = session.graph_data ?? { nodes: [], edges: [] };
+  const recentLabels: string[] = (graph as CareerGraph).nodes
+    .filter((n: Node) => n.weight >= 2)
+    .sort((a: Node, b: Node) => (parseEndYear(b.year) - parseEndYear(a.year)))
+    .slice(0, 8)
+    .map((n: Node) => n.label);
+
+  const pkg = buildContentIdeasPrompt(session, recentLabels);
+
+  return {
+    ...pkg,
+    estimated_tokens: Math.min(pkg.estimated_tokens, CEILINGS.content_ideas),
+    cache_key: `content_ideas:${session_id}:v${session.summary_version}`,
+    metadata: { ...pkg.metadata, summary_version: session.summary_version ?? 0 },
+  };
+}
+
+// ─── 14. node_enrichment_question ────────────────────────────
+
+async function assembleNodeEnrichmentQuestion(input: AssemblerInput): Promise<PromptPackage> {
+  const { session_id, node_id } = input.params as { session_id: string; node_id: string };
+  const session = await getSession(session_id, input.user_id);
+  if (!session) throw new Error('AssemblerError: session not found');
+
+  const graph: CareerGraph = session.graph_data ?? { nodes: [], edges: [] };
+  const node = graph.nodes.find((n: Node) => n.id === node_id);
+  if (!node) throw new Error(`AssemblerError: node ${node_id} not found`);
+
+  const stageProfile = detectStageProfile(graph);
+  const connectedNodes = getConnectedNodes(node_id, graph);
+  const nudgeReason = buildNudgeReason(node, graph, session);
+
+  const pkg = buildNodeEnrichmentPrompt(node, connectedNodes, nudgeReason, stageProfile);
+
+  return {
+    ...pkg,
+    estimated_tokens: Math.min(pkg.estimated_tokens, CEILINGS.node_enrichment_question),
+    cache_key: `node_eq:${session_id}:${node_id}`,
     metadata: { ...pkg.metadata, summary_version: session.summary_version ?? 0 },
   };
 }

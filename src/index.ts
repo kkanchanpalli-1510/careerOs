@@ -7,6 +7,7 @@ import claudeRouter from './routes/claude';
 import sessionsRouter from './routes/sessions';
 import pdfRouter from './routes/pdf';
 import eventsRouter from './routes/events';
+import voiceRouter from './routes/voice';
 
 const app = express();
 // Allow configured origin, localhost variants, and null (file:// local HTML)
@@ -37,6 +38,7 @@ app.use('/api/v1/claude', claudeRouter);
 app.use('/api/v1/sessions', sessionsRouter);
 app.use('/api/v1/pdf', pdfRouter);
 app.use('/api/v1/events', eventsRouter);
+app.use('/api/v1/voice', voiceRouter);
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`Career OS API on port ${PORT}`));

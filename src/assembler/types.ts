@@ -12,7 +12,10 @@ export type TaskType =
   | 'career_summary_generation'
   | 'career_chat'
   | 'linkedin_summary'
-  | 'short_bio';
+  | 'short_bio'
+  | 'article_draft'
+  | 'content_ideas'
+  | 'node_enrichment_question';
 
 export interface Node {
   id: string;

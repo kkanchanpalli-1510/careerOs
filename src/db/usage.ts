@@ -30,6 +30,7 @@ export async function checkRateLimit(userId: string, taskType: TaskType): Promis
     branch_generation: 10, gap_enrichment: 50, final_synthesis: 5,
     node_chat: 100, resume_projection: 20, career_chat: 200,
     linkedin_summary: 10, short_bio: 10,
+    article_draft: 5, content_ideas: 10, node_enrichment_question: 50,
     // career_summary_generation is an internal background task — no per-user limit
   };
   const limit = limits[taskType];

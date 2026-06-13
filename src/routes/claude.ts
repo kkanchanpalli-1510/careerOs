@@ -514,4 +514,234 @@ router.post('/short-bio', async (req: Request, res: Response) => {
   }
 });
 
+// ─── POST /claude/content-ideas ──────────────────────────────
+
+router.post('/content-ideas', async (req: Request, res: Response) => {
+  const userId = uid(req);
+  const { session_id } = req.body;
+  if (!session_id) { res.status(400).json({ error: 'session_id required' }); return; }
+
+  if (!await checkRateLimit(userId, 'content_ideas')) {
+    res.status(429).json({ error: 'Daily content ideas limit reached' }); return;
+  }
+
+  const session = await validateSessionOwnership(session_id, userId);
+  if (!session) { res.status(403).json({ error: 'Forbidden' }); return; }
+
+  try {
+    const pkg = await assembleContext({
+      user_id: userId, task: 'content_ideas', params: { session_id },
+    });
+
+    const response = await callClaude(userId, session_id, 'content_ideas', pkg, 600);
+    const result = parseJsonResponse<{ ideas: unknown[] }>(response);
+
+    const insights = { ...(session.insights ?? {}), content_ideas: result.ideas };
+    await updateSession(session_id, userId, {
+      insights,
+      content_ideas: result.ideas,
+      content_ideas_generated_at: new Date().toISOString(),
+    });
+
+    res.json({ ideas: result.ideas, metadata: pkg.metadata });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : 'content_ideas failed';
+    res.status(500).json({ error: msg });
+  }
+});
+
+// ─── POST /claude/article-draft ──────────────────────────────
+
+router.post('/article-draft', async (req: Request, res: Response) => {
+  const userId = uid(req);
+  const { session_id, thoughts } = req.body;
+  if (!session_id || !thoughts?.trim()) {
+    res.status(400).json({ error: 'session_id, thoughts required' }); return;
+  }
+
+  if (!await checkRateLimit(userId, 'article_draft')) {
+    res.status(429).json({ error: 'Daily article draft limit reached' }); return;
+  }
+
+  const session = await validateSessionOwnership(session_id, userId);
+  if (!session) { res.status(403).json({ error: 'Forbidden' }); return; }
+
+  try {
+    const pkg = await assembleContext({
+      user_id: userId, task: 'article_draft',
+      params: { session_id, user_thoughts: thoughts.trim() },
+    });
+
+    const response = await callClaude(userId, session_id, 'article_draft', pkg, 1200);
+    const raw = responseText(response);
+
+    // First line is the title, blank line, then body
+    const lines = raw.split('\n');
+    const title = lines[0].trim();
+    const body  = lines.slice(2).join('\n').trim();
+
+    const { data: article, error } = await (await import('../db/client')).supabaseAdmin
+      .from('articles')
+      .insert({
+        user_id:           userId,
+        session_id,
+        title,
+        theme:             thoughts.trim(),
+        generated_draft:   body,
+        current_content:   body,
+        word_count:        body.split(/\s+/).length,
+      })
+      .select('id, title')
+      .single();
+
+    if (error) throw error;
+
+    res.json({ article_id: article.id, title, body, metadata: pkg.metadata });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : 'article_draft failed';
+    res.status(500).json({ error: msg });
+  }
+});
+
+// ─── POST /claude/article/:id/publish ────────────────────────
+
+router.post('/article/:id/publish', async (req: Request, res: Response) => {
+  const userId = uid(req);
+  const articleId = req.params.id;
+  const { session_id, platform, published_url, final_content } = req.body;
+  if (!session_id) { res.status(400).json({ error: 'session_id required' }); return; }
+
+  const session = await validateSessionOwnership(session_id, userId);
+  if (!session) { res.status(403).json({ error: 'Forbidden' }); return; }
+
+  try {
+    const { supabaseAdmin } = await import('../db/client');
+
+    const { data: article, error: fetchErr } = await supabaseAdmin
+      .from('articles')
+      .select('*')
+      .eq('id', articleId)
+      .eq('user_id', userId)
+      .single();
+    if (fetchErr || !article) { res.status(404).json({ error: 'Article not found' }); return; }
+
+    const wordCount = (final_content ?? article.current_content ?? '').split(/\s+/).length;
+    const editSimilarity = article.generated_draft && final_content
+      ? Math.max(0, 1 - (editDistance(article.generated_draft, final_content) /
+          Math.max(article.generated_draft.length, final_content.length)))
+      : 1;
+
+    await supabaseAdmin.from('articles').update({
+      status:            'published',
+      published_content: final_content ?? article.current_content,
+      published_url:     published_url ?? null,
+      platform:          platform ?? null,
+      published_at:      new Date().toISOString(),
+      word_count:        wordCount,
+      edit_similarity:   editSimilarity,
+    }).eq('id', articleId).eq('user_id', userId);
+
+    // Add a publication node to the career graph
+    const graph: CareerGraph = session.graph_data ?? { nodes: [], edges: [] };
+    const pubNode = {
+      id:     `pub_${Date.now()}`,
+      type:   'outcome' as const,
+      label:  article.title?.slice(0, 35) ?? 'Published Article',
+      detail: `Published ${platform ?? ''} article. ${(final_content ?? '').slice(0, 80)}…`,
+      year:   new Date().getFullYear().toString(),
+      weight: 2 as const,
+    };
+    graph.nodes.push(pubNode);
+    await updateSession(session_id, userId, {
+      graph_data:      graph,
+      summary_version: (session.summary_version ?? 0) + 1,
+    });
+
+    res.json({ ok: true, word_count: wordCount, edit_similarity: editSimilarity });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : 'article publish failed';
+    res.status(500).json({ error: msg });
+  }
+});
+
+// ─── POST /claude/chat-assist ─────────────────────────────────
+
+router.post('/chat-assist', async (req: Request, res: Response) => {
+  const userId = uid(req);
+  const { session_id, tab_type, current_text, messages } = req.body;
+
+  const VALID_TABS = ['bio', 'summary', 'article'];
+  if (!session_id || !VALID_TABS.includes(tab_type)) {
+    res.status(400).json({ error: 'session_id and valid tab_type required' }); return;
+  }
+
+  const session = await validateSessionOwnership(session_id, userId);
+  if (!session) { res.status(403).json({ error: 'Forbidden' }); return; }
+
+  try {
+    const { buildChatAssistContext, injectContext } = await import('../assembler/tasks/chatAssist');
+    const { getVoiceProfile } = await import('../lib/voiceProfile');
+    const { anthropic, MODEL } = await import('../lib/anthropic');
+
+    const voiceProfile = await getVoiceProfile(userId).catch(() => null);
+    const { system, contextBlock } = buildChatAssistContext(
+      session, tab_type, current_text ?? '', voiceProfile,
+    );
+
+    const rawMessages: Array<{ role: string; content: string }> = messages ?? [];
+    const primed = injectContext(rawMessages, contextBlock);
+
+    const response = await anthropic.messages.create({
+      model:      MODEL,
+      max_tokens: 1000,
+      system,
+      messages:   primed as Array<{ role: 'user' | 'assistant'; content: string }>,
+    });
+
+    const content = (response.content[0] as { type: string; text: string }).text;
+    res.json({ content });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : 'chat_assist failed';
+    res.status(500).json({ error: msg });
+  }
+});
+
+// ─── POST /claude/node-enrichment-question ────────────────────
+
+router.post('/node-enrichment-question', async (req: Request, res: Response) => {
+  const userId = uid(req);
+  const { session_id, node_id } = req.body;
+  if (!session_id || !node_id) {
+    res.status(400).json({ error: 'session_id, node_id required' }); return;
+  }
+
+  const session = await validateSessionOwnership(session_id, userId);
+  if (!session) { res.status(403).json({ error: 'Forbidden' }); return; }
+
+  try {
+    const pkg = await assembleContext({
+      user_id: userId, task: 'node_enrichment_question', params: { session_id, node_id },
+    });
+
+    const response = await callClaude(userId, session_id, 'node_enrichment_question', pkg, 150);
+    const question = responseText(response);
+
+    res.json({ question, node_id, metadata: pkg.metadata });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : 'node_enrichment_question failed';
+    res.status(500).json({ error: msg });
+  }
+});
+
 export default router;
+
+// Rough edit-distance proxy — just character-level diff ratio
+function editDistance(a: string, b: string): number {
+  const longer = a.length > b.length ? a : b;
+  const shorter = a.length > b.length ? b : a;
+  let matches = 0;
+  for (let i = 0; i < shorter.length; i++) {
+    if (shorter[i] === longer[i]) matches++;
+  }
+  return longer.length - matches;
+}
