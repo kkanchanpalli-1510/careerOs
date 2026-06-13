@@ -6,11 +6,14 @@ import { logUsage, checkRateLimit } from '../db/usage';
 import { validateSessionOwnership, updateSession } from '../db/sessions';
 import { appendNodeMessages } from '../db/conversations';
 import { buildDeterministicSkeleton, detectStageProfile } from '../assembler/summary';
-import { CareerGraph, InsightStrength, TaskType } from '../assembler/types';
+import { CareerGraph, InsightStrength, Node, TaskType } from '../assembler/types';
 import { validateInsight } from '../assembler/tasks/insightGeneration';
 import { buildResumeVoicePrompt, updateVoiceFromAnswer } from '../assembler/tasks/voiceExtraction';
 import { initVoiceProfile, ResumeVoiceResult } from '../lib/voiceProfile';
 import { supabaseAdmin } from '../db/client';
+import { getVoiceProfile } from '../lib/voiceProfile';
+import { generateGoalGhostNodes, buildGhostEdges } from '../assembler/tasks/goalGraph';
+import { evaluateArticleAgainstGhostNodes, buildEnrichmentToast } from '../assembler/tasks/articleEnrichment';
 import type { Message } from '@anthropic-ai/sdk/resources/messages';
 
 const router = Router();
@@ -519,7 +522,7 @@ router.post('/short-bio', async (req: Request, res: Response) => {
 
 router.post('/content-ideas', async (req: Request, res: Response) => {
   const userId = uid(req);
-  const { session_id } = req.body;
+  const { session_id, target_ghost_node_id } = req.body;
   if (!session_id) { res.status(400).json({ error: 'session_id required' }); return; }
 
   if (!await checkRateLimit(userId, 'content_ideas')) {
@@ -529,23 +532,36 @@ router.post('/content-ideas', async (req: Request, res: Response) => {
   const session = await validateSessionOwnership(session_id, userId);
   if (!session) { res.status(403).json({ error: 'Forbidden' }); return; }
 
+  const ghostNodes = (session.graph_data?.nodes ?? []).filter((n: Node & { ghost?: boolean }) => n.ghost);
+
+  // Return cached ideas when no ghost target and cache is < 24h old
+  if (!target_ghost_node_id && session.content_ideas_generated_at) {
+    const age = Date.now() - new Date(session.content_ideas_generated_at).getTime();
+    if (age < 86_400_000 && Array.isArray(session.content_ideas)) {
+      res.json({ ideas: session.content_ideas, ghost_nodes: ghostNodes }); return;
+    }
+  }
+
   try {
     const pkg = await assembleContext({
-      user_id: userId, task: 'content_ideas', params: { session_id },
+      user_id: userId, task: 'content_ideas',
+      params: { session_id, target_ghost_node_id: target_ghost_node_id ?? null },
     });
 
     const response = await callClaude(userId, session_id, 'content_ideas', pkg, 600);
     const result = parseJsonResponse<{ ideas: unknown[] }>(response);
-    const ideas = Array.isArray(result?.ideas) ? result.ideas : [];
+    const ideas = Array.isArray(result?.ideas)
+      ? result.ideas
+      : Array.isArray(result)
+        ? result
+        : [];
 
-    const insights = { ...(session.insights ?? {}), content_ideas: ideas };
     await updateSession(session_id, userId, {
-      insights,
-      content_ideas: ideas,
-      content_ideas_generated_at: new Date().toISOString(),
+      content_ideas:               ideas,
+      content_ideas_generated_at:  new Date().toISOString(),
     });
 
-    res.json({ ideas, metadata: pkg.metadata });
+    res.json({ ideas, ghost_nodes: ghostNodes });
   } catch (err) {
     const msg = err instanceof Error ? err.message : 'content_ideas failed';
     res.status(500).json({ error: msg });
@@ -556,7 +572,7 @@ router.post('/content-ideas', async (req: Request, res: Response) => {
 
 router.post('/article-draft', async (req: Request, res: Response) => {
   const userId = uid(req);
-  const { session_id, thoughts } = req.body;
+  const { session_id, thoughts, target_ghost_node_id } = req.body;
   if (!session_id || !thoughts?.trim()) {
     res.status(400).json({ error: 'session_id, thoughts required' }); return;
   }
@@ -571,27 +587,27 @@ router.post('/article-draft', async (req: Request, res: Response) => {
   try {
     const pkg = await assembleContext({
       user_id: userId, task: 'article_draft',
-      params: { session_id, user_thoughts: thoughts.trim() },
+      params: { session_id, user_thoughts: thoughts.trim(), target_ghost_node_id: target_ghost_node_id ?? null },
     });
 
     const response = await callClaude(userId, session_id, 'article_draft', pkg, 1200);
     const raw = responseText(response);
 
-    // First line is the title, blank line, then body
     const lines = raw.split('\n');
     const title = lines[0].trim();
     const body  = lines.slice(2).join('\n').trim();
 
-    const { data: article, error } = await (await import('../db/client')).supabaseAdmin
+    const { data: article, error } = await supabaseAdmin
       .from('articles')
       .insert({
-        user_id:           userId,
+        user_id:              userId,
         session_id,
         title,
-        theme:             thoughts.trim(),
-        generated_draft:   body,
-        current_content:   body,
-        word_count:        body.split(/\s+/).length,
+        theme:                thoughts.trim(),
+        generated_draft:      body,
+        current_content:      body,
+        word_count:           body.split(/\s+/).filter(Boolean).length,
+        target_ghost_node_id: target_ghost_node_id ?? null,
       })
       .select('id, title')
       .single();
@@ -663,6 +679,42 @@ router.post('/article/:id/publish', async (req: Request, res: Response) => {
       graph_data:      graph,
       summary_version: (session.summary_version ?? 0) + 1,
     });
+
+    // Fire-and-forget: evaluate article against ghost nodes and advance progress
+    const ghostNodes = graph.nodes.filter((n: any) => n.ghost);
+    if (ghostNodes.length) {
+      evaluateArticleAgainstGhostNodes(
+        content, article.title ?? '', ghostNodes, article.target_ghost_node_id ?? null,
+      ).then(async ({ updates }) => {
+        if (!updates.length) return;
+        const freshSession = await validateSessionOwnership(session_id, userId);
+        if (!freshSession) return;
+        const freshGraph: CareerGraph = {
+          nodes: [...(freshSession.graph_data?.nodes ?? [])],
+          edges: [...(freshSession.graph_data?.edges ?? [])],
+        };
+        let changed = false;
+        for (const u of updates) {
+          const nodeIdx = freshGraph.nodes.findIndex((n: any) => n.id === u.ghost_node_id);
+          if (nodeIdx === -1) continue;
+          const node = freshGraph.nodes[nodeIdx] as any;
+          const newProgress = Math.min(1, (node.ghost_progress ?? 0) + u.progress_delta);
+          freshGraph.nodes[nodeIdx] = { ...node, ghost_progress: newProgress };
+          if (newProgress >= 0.8) {
+            // Convert ghost node to real outcome node
+            const { ghost, ghost_progress, ghost_filled_by, ghost_addressed_by, ...realFields } = freshGraph.nodes[nodeIdx] as any;
+            freshGraph.nodes[nodeIdx] = { ...realFields, type: 'outcome', weight: 2 };
+          }
+          changed = true;
+        }
+        if (changed) {
+          await updateSession(session_id, userId, {
+            graph_data:      freshGraph,
+            summary_version: (freshSession.summary_version ?? 0) + 1,
+          });
+        }
+      }).catch(() => {});
+    }
 
     res.json({ ok: true, word_count: wordCount, edit_similarity: editSimilarity });
   } catch (err) {
@@ -745,6 +797,199 @@ router.post('/node-enrichment-question', async (req: Request, res: Response) => 
     res.json({ question, node_id, metadata: pkg.metadata });
   } catch (err) {
     const msg = err instanceof Error ? err.message : 'node_enrichment_question failed';
+    res.status(500).json({ error: msg });
+  }
+});
+
+// ─── POST /claude/article-enhance-selection ──────────────────
+// Five editor actions on a text selection: strengthen, direct, expand, cut, rewrite.
+
+router.post('/article-enhance-selection', async (req: Request, res: Response) => {
+  const userId = uid(req);
+  const { session_id, selected_text, action, full_text } = req.body;
+
+  const VALID_ACTIONS = ['strengthen', 'direct', 'expand', 'cut', 'rewrite'];
+  if (!session_id || !selected_text?.trim() || !VALID_ACTIONS.includes(action)) {
+    res.status(400).json({ error: 'session_id, selected_text, and valid action required' }); return;
+  }
+
+  if (!await checkRateLimit(userId, 'article_enhance_selection')) {
+    res.status(429).json({ error: 'Daily enhancement limit reached' }); return;
+  }
+
+  const session = await validateSessionOwnership(session_id, userId);
+  if (!session) { res.status(403).json({ error: 'Forbidden' }); return; }
+
+  try {
+    const voiceProfile = await getVoiceProfile(userId).catch(() => null);
+    const graph: CareerGraph = session.graph_data ?? { nodes: [], edges: [] };
+
+    const ACTION_INSTRUCTIONS: Record<string, string> = {
+      strengthen: 'Make this passage stronger and more compelling. Use concrete evidence or sharper language. Do not expand the length significantly.',
+      direct:     'Make this passage more direct and confident. Cut hedging language ("I think", "sort of", "maybe"). Keep the same meaning.',
+      expand:     'Expand this passage with one or two additional sentences that deepen the insight or add a specific example.',
+      cut:        'Cut this passage to its essential meaning. Remove filler, repetition, and weak qualifiers. Aim for half the word count.',
+      rewrite:    'Rewrite this passage from scratch while preserving the core idea. Fresh angle, new phrasing.',
+    };
+
+    const voiceGuidance = voiceProfile
+      ? `Voice note: ${voiceProfile.voice_note ?? ''}`
+      : '';
+
+    const contextSample = full_text
+      ? `\n\nFull article context (first 400 words):\n${full_text.slice(0, 1600)}`
+      : '';
+
+    const system = `You are a professional writing editor helping improve LinkedIn and professional articles. Return ONLY the improved version of the selected text — no commentary, no labels, no explanation. Match the author's voice.${voiceGuidance ? '\n\n' + voiceGuidance : ''}`;
+
+    const userPrompt = `Action: ${action.toUpperCase()}\nInstruction: ${ACTION_INSTRUCTIONS[action]}${contextSample}\n\nSelected text to ${action}:\n"""\n${selected_text}\n"""\n\nReturn the improved version only:`;
+
+    const response = await anthropic.messages.create({
+      model: MODEL,
+      max_tokens: 400,
+      system,
+      messages: [{ role: 'user', content: userPrompt }],
+    });
+
+    await logUsage({
+      userId, sessionId: session_id, taskType: 'article_enhance_selection',
+      promptTokens: response.usage.input_tokens,
+      completionTokens: response.usage.output_tokens,
+    });
+
+    res.json({ enhanced_text: responseText(response).trim() });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : 'article_enhance_selection failed';
+    res.status(500).json({ error: msg });
+  }
+});
+
+// ─── POST /claude/article-review ──────────────────────────────
+// Returns 3 structured observations (voice / specificity / structure) + overall one-liner.
+
+router.post('/article-review', async (req: Request, res: Response) => {
+  const userId = uid(req);
+  const { session_id, article_id } = req.body;
+  if (!session_id || !article_id) {
+    res.status(400).json({ error: 'session_id and article_id required' }); return;
+  }
+
+  if (!await checkRateLimit(userId, 'article_review')) {
+    res.status(429).json({ error: 'Daily review limit reached' }); return;
+  }
+
+  const session = await validateSessionOwnership(session_id, userId);
+  if (!session) { res.status(403).json({ error: 'Forbidden' }); return; }
+
+  try {
+    const { data: article, error: fetchErr } = await supabaseAdmin
+      .from('articles')
+      .select('title, current_content, generated_draft')
+      .eq('id', article_id)
+      .eq('user_id', userId)
+      .single();
+    if (fetchErr || !article) { res.status(404).json({ error: 'Article not found' }); return; }
+
+    const content = article.current_content ?? article.generated_draft ?? '';
+    if (!content.trim()) {
+      res.status(400).json({ error: 'Article has no content to review' }); return;
+    }
+
+    const voiceProfile = await getVoiceProfile(userId).catch(() => null);
+    const voiceHint = voiceProfile
+      ? `Author voice note: ${voiceProfile.voice_note ?? ''}`
+      : '';
+
+    const prompt = `You are a professional editor reviewing a LinkedIn-style article.${voiceHint ? '\n' + voiceHint : ''}
+
+Article title: "${article.title ?? 'Untitled'}"
+Article content:
+"""
+${content.slice(0, 3000)}
+"""
+
+Return ONLY valid JSON (no markdown fences) with exactly this shape:
+{
+  "observations": [
+    { "dimension": "voice",       "finding": "...", "suggestion": "..." },
+    { "dimension": "specificity", "finding": "...", "suggestion": "..." },
+    { "dimension": "structure",   "finding": "...", "suggestion": "..." }
+  ],
+  "overall": "One sentence — the most important thing to improve in this draft."
+}
+
+Rules:
+- Each finding is 1 sentence describing what's working or what's weak.
+- Each suggestion is 1 sentence — a specific, actionable change.
+- overall is 1 sentence.
+- Never repeat the same point across dimensions.`;
+
+    const response = await anthropic.messages.create({
+      model: MODEL,
+      max_tokens: 500,
+      messages: [{ role: 'user', content: prompt }],
+    });
+
+    await logUsage({
+      userId, sessionId: session_id, taskType: 'article_review',
+      promptTokens: response.usage.input_tokens,
+      completionTokens: response.usage.output_tokens,
+    });
+
+    const result = parseJsonResponse<{ observations: unknown[]; overall: string }>(response);
+    res.json(result);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : 'article_review failed';
+    res.status(500).json({ error: msg });
+  }
+});
+
+// ─── POST /claude/goal-graph ───────────────────────────────────
+// Generates 4-7 ghost nodes representing gaps to the target role and merges them into the session graph.
+
+router.post('/goal-graph', async (req: Request, res: Response) => {
+  const userId = uid(req);
+  const { session_id, goal_title } = req.body;
+  if (!session_id || !goal_title?.trim()) {
+    res.status(400).json({ error: 'session_id and goal_title required' }); return;
+  }
+
+  if (!await checkRateLimit(userId, 'goal_graph')) {
+    res.status(429).json({ error: 'Daily goal graph limit reached' }); return;
+  }
+
+  const session = await validateSessionOwnership(session_id, userId);
+  if (!session) { res.status(403).json({ error: 'Forbidden' }); return; }
+
+  try {
+    const ghostNodes = await generateGoalGhostNodes(session, goal_title.trim());
+
+    const graph: CareerGraph = {
+      nodes: [...(session.graph_data?.nodes ?? [])],
+      edges: [...(session.graph_data?.edges ?? [])],
+    };
+
+    // Remove any previous ghost nodes before inserting the new set
+    graph.nodes = graph.nodes.filter((n: any) => !n.ghost);
+    graph.edges = (graph.edges as any[]).filter((e: any) => !e.ghost) as typeof graph.edges;
+
+    graph.nodes.push(...ghostNodes);
+    const ghostEdges = buildGhostEdges(ghostNodes, graph.nodes);
+    (graph.edges as any[]).push(...ghostEdges);
+
+    await updateSession(session_id, userId, {
+      goal_title:               goal_title.trim(),
+      goal_graph_generated_at:  new Date().toISOString(),
+      goal_graph_version:       (session.goal_graph_version ?? 0) + 1,
+      graph_data:               graph,
+      summary_version:          (session.summary_version ?? 0) + 1,
+    });
+
+    await logUsage({ userId, sessionId: session_id, taskType: 'goal_graph', estimatedTokens: 1000 });
+
+    res.json({ ghost_nodes: ghostNodes, goal_title: goal_title.trim() });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : 'goal_graph failed';
     res.status(500).json({ error: msg });
   }
 });

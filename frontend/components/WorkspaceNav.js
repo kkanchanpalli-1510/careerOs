@@ -15,6 +15,12 @@ export const NAV_ITEMS = [
     ]
   },
   {
+    section: 'Goal',
+    items: [
+      { id: 'goal', icon: '⟶', label: 'Career Goal', color: 'blue' },
+    ]
+  },
+  {
     section: 'Publish',
     items: [
       { id: 'headline',  icon: '—', label: 'LinkedIn Headline', color: 'default' },

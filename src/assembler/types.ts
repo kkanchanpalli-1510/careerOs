@@ -16,7 +16,10 @@ export type TaskType =
   | 'article_draft'
   | 'content_ideas'
   | 'node_enrichment_question'
-  | 'chat_assist';
+  | 'chat_assist'
+  | 'goal_graph'
+  | 'article_enhance_selection'
+  | 'article_review';
 
 export interface Node {
   id: string;
@@ -25,6 +28,11 @@ export interface Node {
   detail: string;
   year: string | null;
   weight: 1 | 2 | 3;
+  // Ghost node fields (doc 13)
+  ghost?: true;
+  ghost_progress?: number;
+  ghost_filled_by?: string[];
+  ghost_addressed_by?: string;
 }
 
 export interface Edge {

@@ -1,11 +1,45 @@
 // frontend/workspace.js
 import { getDefaultRoute } from '../src/lib/routing.js';
 import { renderNav } from './components/WorkspaceNav.js';
-import { loadNudgeBanner } from './nudge.js';
+import { loadNudgeBanner, showToast as _showToast } from './nudge.js';
+
+// ── API config ─────────────────────────────────────────────────────────────
+const BACKEND_URL  = 'https://ideal-grace-production-3e9f.up.railway.app';
+const _SUPA_PREFIX = 'rltvhwzyezkqidgcnbrw';
+
+export function getToken() {
+  try {
+    const raw = localStorage.getItem(`sb-${_SUPA_PREFIX}-auth-token`);
+    if (!raw) return window.__careerToken ?? '';
+    return JSON.parse(raw)?.access_token ?? '';
+  } catch {
+    return window.__careerToken ?? '';
+  }
+}
+
+export async function fetchBackend(path) {
+  const res = await fetch(`${BACKEND_URL}/api/v1/${path}`, {
+    headers: { 'Authorization': `Bearer ${getToken()}` },
+  });
+  if (!res.ok) throw new Error(`fetchBackend ${path} → ${res.status}`);
+  return res.json();
+}
+
+export async function callBackend(path, options = {}) {
+  const headers = { 'Authorization': `Bearer ${getToken()}`, ...options.headers };
+  if (options.body && !headers['Content-Type']) {
+    headers['Content-Type'] = 'application/json';
+  }
+  const res = await fetch(`${BACKEND_URL}/api/v1/${path}`, { ...options, headers });
+  if (!res.ok) throw new Error(`callBackend ${path} → ${res.status}`);
+  return res.json();
+}
+
+export function showToast(msg) { _showToast(msg); }
+
+export function currentSessionId() { return currentSession?.id ?? null; }
 
 // ── Session state ──────────────────────────────────────────────────────────
-// Populated by auth flow (Supabase) before workspace loads.
-// In dev: ?mock=returning or ?mock=new overrides session detection.
 export let currentSession = null;
 
 // ── Panel registry ─────────────────────────────────────────────────────────
@@ -17,6 +51,7 @@ const PANEL_LOADERS = {
   summary:    () => import('./panels/SummaryPanel.js'),
   bio:        () => import('./panels/BioPanel.js'),
   articles:   () => import('./panels/ArticlesPanel.js'),
+  goal:       () => import('./panels/GoalPanel.js'),
   settings:   () => import('./panels/SettingsPanel.js'),
 };
 
@@ -99,8 +134,18 @@ async function init() {
   } else if (mock === 'returning') {
     currentSession = { insights: { strength: 'stub' } };
   } else {
-    // Real session — read from Supabase if available
-    currentSession = window.__careerSession ?? null;
+    // Real session — prefer window.__careerSession injected by server, else fetch from API
+    if (window.__careerSession) {
+      currentSession = window.__careerSession;
+    } else {
+      try {
+        const sessions = await fetchBackend('sessions');
+        currentSession = Array.isArray(sessions) && sessions.length ? sessions[0] : null;
+        if (currentSession) window.__currentSession = currentSession;
+      } catch {
+        currentSession = null;
+      }
+    }
   }
 
   // Session detection: redirect new users to graph
