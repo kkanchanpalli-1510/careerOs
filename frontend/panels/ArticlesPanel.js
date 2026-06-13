@@ -81,19 +81,22 @@ function renderArticleListItem(article) {
 // ── New article view ───────────────────────────────────────────────────────
 
 function setupArticleGlobals(session) {
-  window.openNewArticle = async function() {
+  window.openNewArticle = async function(ghostNodeId) {
+    window.__targetGhostNodeId = ghostNodeId ?? null;
     const mainPanel = document.getElementById('mainPanel');
     mainPanel.innerHTML = `<div class="panel-loading">···</div>`;
 
     let ideas = [];
     try {
+      const body = { session_id: session?.id };
+      if (ghostNodeId) body.target_ghost_node_id = ghostNodeId;
       const res = await fetch('/api/v1/claude/content-ideas', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${getToken()}`,
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ session_id: session?.id })
+        body: JSON.stringify(body)
       });
       if (res.ok) ({ ideas } = await res.json());
     } catch { /* no backend — ideas stays empty */ }
@@ -104,6 +107,13 @@ function setupArticleGlobals(session) {
       </div>
       <div class="new-article-panel">
         <div class="new-article-title">New Article</div>
+        ${ghostNodeId ? `
+          <div style="background:rgba(59,130,246,0.08);border:1px solid rgba(59,130,246,0.3);
+                      border-radius:4px;padding:10px 14px;margin-bottom:4px;
+                      font-family:'DM Mono',monospace;font-size:10px;color:#93c5fd;letter-spacing:0.04em;">
+            ⟶ Writing to close gap: ${(session?.graph_data?.nodes ?? []).find(n => n.id === ghostNodeId)?.label ?? ghostNodeId}
+          </div>
+        ` : ''}
         <div class="new-article-subtitle">
           What's on your mind? Share a thought — even rough.
           Career OS will develop it into a draft in your voice.
@@ -163,11 +173,16 @@ function setupArticleGlobals(session) {
           'Authorization': `Bearer ${getToken()}`,
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ session_id: session?.id, thoughts })
+        body: JSON.stringify({
+          session_id: session?.id,
+          thoughts,
+          ...(window.__targetGhostNodeId ? { target_ghost_node_id: window.__targetGhostNodeId } : {}),
+        })
       });
 
       if (!res.ok) throw new Error('Draft generation failed');
       const { article_id, title, draft } = await res.json();
+      window.__targetGhostNodeId = null;
       openArticleEditor(article_id, title, draft);
     } catch {
       if (btn) { btn.textContent = 'Develop this →'; btn.disabled = false; }

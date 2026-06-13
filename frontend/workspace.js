@@ -116,6 +116,9 @@ function renderEmptyPanel(panelId, container) {
 
 // ── Init ───────────────────────────────────────────────────────────────────
 async function init() {
+  // Expose token globally so lib files (selectionMenu, articleReview, nudge) can read it
+  window.__careerToken = getToken();
+
   // Dev shortcut: ?mock=new simulates a first-visit session
   const mock = new URLSearchParams(location.search).get('mock');
   if (mock === 'new') {
