@@ -58,12 +58,13 @@ function getRecencyScore(node: Node, currentYear: number): number {
 const CURRENT_YEAR = new Date().getFullYear();
 
 async function getSession(sessionId: string, userId: string) {
-  const { data } = await supabaseAdmin
+  const { data, error } = await supabaseAdmin
     .from('career_sessions')
     .select('*')
     .eq('id', sessionId)
     .eq('user_id', userId)
     .single();
+  if (error && error.code !== 'PGRST116') throw new Error(`DB error: ${error.message}`);
   return data;
 }
 
@@ -683,7 +684,7 @@ async function assembleNodeEnrichmentQuestion(input: AssemblerInput): Promise<Pr
 
   const stageProfile = detectStageProfile(graph);
   const connectedNodes = getConnectedNodes(node_id, graph);
-  const nudgeReason = buildNudgeReason(node, graph, session);
+  const nudgeReason = buildNudgeReason(node, graph, session, connectedNodes);
 
   const pkg = buildNodeEnrichmentPrompt(node, connectedNodes, nudgeReason, stageProfile);
 

@@ -10,6 +10,7 @@ import { CareerGraph, InsightStrength, TaskType } from '../assembler/types';
 import { validateInsight } from '../assembler/tasks/insightGeneration';
 import { buildResumeVoicePrompt, updateVoiceFromAnswer } from '../assembler/tasks/voiceExtraction';
 import { initVoiceProfile, ResumeVoiceResult } from '../lib/voiceProfile';
+import { supabaseAdmin } from '../db/client';
 import type { Message } from '@anthropic-ai/sdk/resources/messages';
 
 const router = Router();
@@ -535,15 +536,16 @@ router.post('/content-ideas', async (req: Request, res: Response) => {
 
     const response = await callClaude(userId, session_id, 'content_ideas', pkg, 600);
     const result = parseJsonResponse<{ ideas: unknown[] }>(response);
+    const ideas = Array.isArray(result?.ideas) ? result.ideas : [];
 
-    const insights = { ...(session.insights ?? {}), content_ideas: result.ideas };
+    const insights = { ...(session.insights ?? {}), content_ideas: ideas };
     await updateSession(session_id, userId, {
       insights,
-      content_ideas: result.ideas,
+      content_ideas: ideas,
       content_ideas_generated_at: new Date().toISOString(),
     });
 
-    res.json({ ideas: result.ideas, metadata: pkg.metadata });
+    res.json({ ideas, metadata: pkg.metadata });
   } catch (err) {
     const msg = err instanceof Error ? err.message : 'content_ideas failed';
     res.status(500).json({ error: msg });
@@ -615,8 +617,6 @@ router.post('/article/:id/publish', async (req: Request, res: Response) => {
   if (!session) { res.status(403).json({ error: 'Forbidden' }); return; }
 
   try {
-    const { supabaseAdmin } = await import('../db/client');
-
     const { data: article, error: fetchErr } = await supabaseAdmin
       .from('articles')
       .select('*')
@@ -625,24 +625,31 @@ router.post('/article/:id/publish', async (req: Request, res: Response) => {
       .single();
     if (fetchErr || !article) { res.status(404).json({ error: 'Article not found' }); return; }
 
-    const wordCount = (final_content ?? article.current_content ?? '').split(/\s+/).length;
+    if (article.status === 'published') {
+      res.status(409).json({ error: 'Article already published' }); return;
+    }
+
+    const content = final_content ?? article.current_content ?? '';
+    const wordCount = content.split(/\s+/).filter(Boolean).length;
     const editSimilarity = article.generated_draft && final_content
-      ? Math.max(0, 1 - (editDistance(article.generated_draft, final_content) /
-          Math.max(article.generated_draft.length, final_content.length)))
+      ? wordJaccard(article.generated_draft, final_content)
       : 1;
 
     await supabaseAdmin.from('articles').update({
       status:            'published',
-      published_content: final_content ?? article.current_content,
+      published_content: content,
       published_url:     published_url ?? null,
       platform:          platform ?? null,
       published_at:      new Date().toISOString(),
       word_count:        wordCount,
       edit_similarity:   editSimilarity,
-    }).eq('id', articleId).eq('user_id', userId);
+    }).eq('id', articleId).eq('user_id', userId).neq('status', 'published');
 
-    // Add a publication node to the career graph
-    const graph: CareerGraph = session.graph_data ?? { nodes: [], edges: [] };
+    // Add a publication node to the career graph (clone nodes to avoid mutating session ref)
+    const graph: CareerGraph = {
+      nodes: [...(session.graph_data?.nodes ?? [])],
+      edges: [...(session.graph_data?.edges ?? [])],
+    };
     const pubNode = {
       id:     `pub_${Date.now()}`,
       type:   'outcome' as const,
@@ -675,13 +682,16 @@ router.post('/chat-assist', async (req: Request, res: Response) => {
     res.status(400).json({ error: 'session_id and valid tab_type required' }); return;
   }
 
+  if (!await checkRateLimit(userId, 'chat_assist')) {
+    res.status(429).json({ error: 'Daily chat assist limit reached' }); return;
+  }
+
   const session = await validateSessionOwnership(session_id, userId);
   if (!session) { res.status(403).json({ error: 'Forbidden' }); return; }
 
   try {
     const { buildChatAssistContext, injectContext } = await import('../assembler/tasks/chatAssist');
     const { getVoiceProfile } = await import('../lib/voiceProfile');
-    const { anthropic, MODEL } = await import('../lib/anthropic');
 
     const voiceProfile = await getVoiceProfile(userId).catch(() => null);
     const { system, contextBlock } = buildChatAssistContext(
@@ -696,6 +706,12 @@ router.post('/chat-assist', async (req: Request, res: Response) => {
       max_tokens: 1000,
       system,
       messages:   primed as Array<{ role: 'user' | 'assistant'; content: string }>,
+    });
+
+    await logUsage({
+      userId, sessionId: session_id, taskType: 'chat_assist',
+      promptTokens: response.usage.input_tokens,
+      completionTokens: response.usage.output_tokens,
     });
 
     const content = (response.content[0] as { type: string; text: string }).text;
@@ -735,13 +751,12 @@ router.post('/node-enrichment-question', async (req: Request, res: Response) => 
 
 export default router;
 
-// Rough edit-distance proxy — just character-level diff ratio
-function editDistance(a: string, b: string): number {
-  const longer = a.length > b.length ? a : b;
-  const shorter = a.length > b.length ? b : a;
-  let matches = 0;
-  for (let i = 0; i < shorter.length; i++) {
-    if (shorter[i] === longer[i]) matches++;
-  }
-  return longer.length - matches;
+// Word-level Jaccard similarity: |A∩B| / |A∪B| over the token sets
+function wordJaccard(a: string, b: string): number {
+  const tokA = new Set(a.toLowerCase().match(/\w+/g) ?? []);
+  const tokB = new Set(b.toLowerCase().match(/\w+/g) ?? []);
+  if (!tokA.size && !tokB.size) return 1;
+  let intersection = 0;
+  for (const t of tokA) { if (tokB.has(t)) intersection++; }
+  return intersection / (tokA.size + tokB.size - intersection);
 }

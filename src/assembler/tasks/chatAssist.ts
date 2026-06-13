@@ -76,24 +76,37 @@ export function buildChatAssistContext(
   return { system, contextBlock };
 }
 
-/** Injects the context block as the first user turn so it's always present. */
+const CTX_START = '<!--ctx-->';
+const CTX_END   = '<!--/ctx-->';
+
+/**
+ * Injects the context block into the first user turn on every call so the
+ * latest `current_text` is always visible to Claude, even on turns 2+.
+ * Uses sentinel comments to strip the previous injection before re-injecting.
+ */
 export function injectContext(
   messages: Array<{ role: string; content: string }>,
   contextBlock: string,
 ): Array<{ role: string; content: string }> {
-  // If no messages yet, prime with the context block
+  const wrapped = `${CTX_START}\n${contextBlock}\n${CTX_END}`;
+
   if (!messages.length) {
-    return [{ role: 'user', content: contextBlock }];
+    return [{ role: 'user', content: wrapped }];
   }
-  // Prepend context to the first user message if it isn't already there
+
   const first = messages[0];
-  if (first.role === 'user' && !first.content.startsWith('Identity:') &&
-      !first.content.startsWith('Core strength:') &&
-      !first.content.startsWith('Current ')) {
-    return [
-      { role: 'user', content: `${contextBlock}\n\n${first.content}` },
-      ...messages.slice(1),
-    ];
+  if (first.role !== 'user') {
+    // API requires conversations to start with a user message
+    return [{ role: 'user', content: wrapped }, ...messages];
   }
-  return messages;
+
+  // Strip any previously injected context, then prepend fresh context
+  const stripped = first.content
+    .replace(new RegExp(`^${CTX_START}[\\s\\S]*?${CTX_END}\\n?`), '')
+    .trim();
+
+  return [
+    { role: 'user', content: stripped ? `${wrapped}\n\n${stripped}` : wrapped },
+    ...messages.slice(1),
+  ];
 }

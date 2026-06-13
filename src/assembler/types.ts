@@ -15,7 +15,8 @@ export type TaskType =
   | 'short_bio'
   | 'article_draft'
   | 'content_ideas'
-  | 'node_enrichment_question';
+  | 'node_enrichment_question'
+  | 'chat_assist';
 
 export interface Node {
   id: string;

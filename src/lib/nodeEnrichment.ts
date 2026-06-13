@@ -113,9 +113,10 @@ export function getConnectedNodes(nodeId: string, graph: CareerGraph): Node[] {
 export function buildNudgeReason(
   node: Node,
   graph: CareerGraph,
-  session: CareerSession
+  session: CareerSession,
+  precomputedConnectedNodes?: Node[]
 ): NudgeReason {
-  const connectedNodes = getConnectedNodes(node.id, graph);
+  const connectedNodes = precomputedConnectedNodes ?? getConnectedNodes(node.id, graph);
   const connectedIds = connectedNodes.map(n => n.id);
   const notableConnections = connectedNodes
     .filter(n => n.weight >= 2)
