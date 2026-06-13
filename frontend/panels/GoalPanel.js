@@ -1,4 +1,4 @@
-// frontend/panels/GoalPanel.js — Doc 13: Goal Graph
+// frontend/panels/GoalPanel.js — Doc 13: Goal Graph (v2)
 
 import { getToken, fetchBackend, callBackend, showToast, currentSessionId } from '../workspace.js';
 

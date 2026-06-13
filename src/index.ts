@@ -43,7 +43,7 @@ app.use('/api/v1/voice', voiceRouter);
 // Serve workspace.html for /workspace and /workspace/* so browser refresh works
 const workspaceHtml = path.resolve(process.cwd(), 'frontend/workspace.html');
 app.get('/workspace', (_req, res) => res.sendFile(workspaceHtml));
-app.get('/workspace/*path', (_req, res) => res.sendFile(workspaceHtml));
+app.get('/workspace/*', (_req, res) => res.sendFile(workspaceHtml));
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`Career OS API on port ${PORT}`));
