@@ -241,6 +241,14 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
   padding:12px 16px;border-radius:0 6px 6px 0;color:var(--text2);}
 .msg-body strong{color:var(--accent);font-weight:500;}
 .msg-body em{font-style:italic;color:var(--text2);}
+.msg-body h2,.msg-body h3,.msg-body h4{font-family:'DM Mono',monospace;letter-spacing:0.05em;color:var(--text);margin:14px 0 6px;font-size:11px;text-transform:uppercase;}
+.msg-body h2{font-size:12px;}
+.msg-body p{margin:0 0 10px;}
+.msg-body p:last-child{margin-bottom:0;}
+.msg-body ul,.msg-body ol{margin:6px 0 10px;padding-left:18px;}
+.msg-body li{margin-bottom:5px;line-height:1.65;}
+.msg-body ul li{list-style:disc;}
+.msg-body ol li{list-style:decimal;}
 
 /* question card */
 .q-card{background:var(--bg);border:1px solid var(--border2);border-radius:8px;
@@ -1912,6 +1920,34 @@ function scrollDown() {
   const s = document.getElementById('convScroll');
   setTimeout(() => s.scrollTo({ top: s.scrollHeight, behavior: 'smooth' }), 100);
 }
+function markdownToHtml(md) {
+  return md
+    // Headers
+    .replace(/^### (.+)$/gm, '<h4>$1</h4>')
+    .replace(/^## (.+)$/gm, '<h3>$1</h3>')
+    .replace(/^# (.+)$/gm, '<h2>$1</h2>')
+    // Bold + italic
+    .replace(/\*\*\*(.+?)\*\*\*/g, '<strong><em>$1</em></strong>')
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    .replace(/\*(.+?)\*/g, '<em>$1</em>')
+    // Unordered lists — collect consecutive bullet lines into <ul>
+    .replace(/((?:^[-*] .+\n?)+)/gm, (block) => {
+      const items = block.trim().split('\n').map(l => `<li>${l.replace(/^[-*] /, '')}</li>`).join('');
+      return `<ul>${items}</ul>`;
+    })
+    // Ordered lists
+    .replace(/((?:^\d+\. .+\n?)+)/gm, (block) => {
+      const items = block.trim().split('\n').map(l => `<li>${l.replace(/^\d+\. /, '')}</li>`).join('');
+      return `<ol>${items}</ol>`;
+    })
+    // Paragraphs — blank-line-separated blocks not already tagged
+    .split(/\n{2,}/)
+    .map(block => block.trim())
+    .filter(Boolean)
+    .map(block => /^<[houb]/.test(block) ? block : `<p>${block.replace(/\n/g, '<br>')}</p>`)
+    .join('');
+}
+
 function addMsg(role, html, extraClass='') {
   const s = document.getElementById('convScroll');
   const div = document.createElement('div');
@@ -3029,7 +3065,7 @@ async function sendCareerChat(forcedMsg) {
       history,
     });
     t.remove();
-    addMsg('system', resp.content);
+    addMsg('system', markdownToHtml(resp.content));
 
     S().careerChatHistory.push({ role: 'user',      content: msg          });
     S().careerChatHistory.push({ role: 'assistant', content: resp.content });
