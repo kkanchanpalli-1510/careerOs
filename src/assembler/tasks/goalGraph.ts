@@ -54,12 +54,17 @@ Return ONLY a valid JSON array — no markdown, no backticks:
 
   const response = await anthropic.messages.create({
     model: MODEL,
-    max_tokens: 800,
+    max_tokens: 1500,
     messages: [{ role: 'user', content: prompt }],
   });
 
   const text = (response.content[0] as { type: string; text: string }).text?.trim() ?? '';
-  const cleaned = text.replace(/^```json\n?|```$/g, '').trim();
+  let cleaned = text.replace(/^```json\n?|```$/g, '').trim();
+  // Repair truncated JSON array — find the last complete object and close the array
+  if (!cleaned.endsWith(']')) {
+    const lastClose = cleaned.lastIndexOf('}');
+    if (lastClose !== -1) cleaned = cleaned.slice(0, lastClose + 1) + ']';
+  }
   const nodes = JSON.parse(cleaned) as Node[];
 
   // Ensure IDs are unique by appending timestamp suffix
