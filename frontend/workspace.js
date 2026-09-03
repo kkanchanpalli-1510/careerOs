@@ -3,7 +3,7 @@ import { renderNav } from './components/WorkspaceNav.js';
 import { loadNudgeBanner, showToast as _showToast } from './nudge.js';
 
 // ── API config ─────────────────────────────────────────────────────────────
-const BACKEND_URL  = 'https://careeros.up.railway.app';
+const BACKEND_URL  = '';
 const _SUPA_PREFIX = 'rltvhwzyezkqidgcnbrw';
 
 export function getToken() {
