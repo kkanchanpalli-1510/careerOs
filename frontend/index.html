@@ -3011,6 +3011,12 @@ async function sendCareerChat(forcedMsg) {
 
   addMsg('user', msg);
 
+  // Collapse option cards once the user starts chatting
+  const _pills = document.getElementById('nsPillsContainer');
+  if (_pills) _pills.style.display = 'none';
+  const _nsHeader = _pills?.previousElementSibling;
+  if (_nsHeader && _nsHeader.classList.contains('ns-header')) _nsHeader.style.display = 'none';
+
   // Persist history in session state (last 20 turns)
   if (!S().careerChatHistory) S().careerChatHistory = [];
   const history = S().careerChatHistory.slice(-20);
