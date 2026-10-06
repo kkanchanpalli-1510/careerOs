@@ -10,13 +10,14 @@ frontend is a single-page HTML file served as a static asset, database is Supaba
 **GitHub:** https://github.com/kkanchanpalli-1510/careerOs
 
 ## Deploy commands
-```bash
-# Deploy backend + frontend to Railway
-/opt/homebrew/bin/railway up --detach
+Railway deploys automatically from the `main` branch on GitHub. **Never run `railway up`**
+— deploying from a local machine puts code in production that isn't in git.
 
-# Sync frontend source to backend static dir (always run before deploy)
-cp /Users/swapnaannojwala/Documents/careerOs/files/career-os-interactive.html \
-   /Users/swapnaannojwala/Documents/careerOs/career-os-backend/frontend/index.html
+```bash
+# Ship a change: branch, commit, push, open a PR, merge to main → Railway builds it
+git checkout -b feat/my-change
+git push -u origin feat/my-change
+gh pr create --base main
 ```
 
 ## Key file locations
