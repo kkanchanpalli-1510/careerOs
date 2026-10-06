@@ -87,7 +87,7 @@ export async function navigateTo(panelId) {
 }
 
 // ── Graph full-screen toggle ───────────────────────────────────────────────
-export function openGraphView() {
+export async function openGraphView() {
   const workspace      = document.getElementById('workspace');
   const graphContainer = document.getElementById('graphContainer');
   const backBtn        = document.getElementById('graphBackBtn');
@@ -102,6 +102,12 @@ export function openGraphView() {
     workspace.style.display      = 'grid';
     backBtn.style.display        = 'none';
   };
+
+  // Render graph (only once per open — avoid re-running simulation on back+re-open)
+  if (!graphContainer.querySelector('svg')) {
+    const { render } = await import(`/panels/GraphPanel.js?v=${Date.now()}`);
+    render(graphContainer, currentSession);
+  }
 }
 
 // ── Empty panel fallback ───────────────────────────────────────────────────
