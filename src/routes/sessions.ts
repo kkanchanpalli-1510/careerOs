@@ -39,7 +39,7 @@ router.get('/', async (req: Request, res: Response) => {
 
   const { data, error } = await supabaseAdmin
     .from('career_sessions')
-    .select('id, name, step, created_at, updated_at, graph_data, insights, answers, selected_branch, career_summary, enrich_count')
+    .select('id, name, step, created_at, updated_at, graph_data, insights, answers, selected_branch, career_summary, enrich_count, goal_title, goal_history, interview_answers')
     .eq('user_id', userId)
     .order('created_at', { ascending: true });
 
@@ -328,6 +328,25 @@ router.patch('/:id/outputs/:outputType', async (req: Request, res: Response) => 
 
   await updateSession(id, userId, { insights });
   res.json({ ok: true });
+});
+
+// ─── POST /:id/goal-history — prepend a goal title to persistent history ──────
+
+router.post('/:id/goal-history', async (req: Request, res: Response) => {
+  const userId = uid(req);
+  const sessionId = req.params.id as string;
+  const { goal_title } = req.body;
+  if (!goal_title?.trim()) { res.status(400).json({ error: 'goal_title required' }); return; }
+
+  const session = await validateSessionOwnership(sessionId, userId);
+  if (!session) { res.status(403).json({ error: 'Forbidden' }); return; }
+
+  const title = goal_title.trim();
+  const existing: string[] = (session as any).goal_history ?? [];
+  const deduped = [title, ...existing.filter((t: string) => t !== title)].slice(0, 10);
+
+  await updateSession(sessionId, userId, { goal_history: deduped });
+  res.json({ goal_history: deduped });
 });
 
 // ─── DELETE /:id/goal — clear goal + ghost nodes ──────────────

@@ -4,25 +4,30 @@
 Career OS is a career intelligence tool. It extracts a career graph from a resume,
 runs a structured interview (4 questions), then generates a Core Strength insight,
 Career Directions, and a Career Portrait. Backend is Express + TypeScript on Railway,
-frontend is a single-page HTML file served as a static asset, database is Supabase.
+frontend is plain HTML + JS modules in `frontend/` served as static assets, database is Supabase.
 
 **Live URL:** https://ideal-grace-production-3e9f.up.railway.app
 **GitHub:** https://github.com/kkanchanpalli-1510/careerOs
 
 ## Deploy commands
-```bash
-# Deploy backend + frontend to Railway
-/opt/homebrew/bin/railway up --detach
+Railway deploys automatically from the `main` branch on GitHub. **Never run `railway up`**
+— deploying from a local machine puts code in production that isn't in git.
 
-# Sync frontend source to backend static dir (always run before deploy)
-cp /Users/swapnaannojwala/Documents/careerOs/files/career-os-interactive.html \
-   /Users/swapnaannojwala/Documents/careerOs/career-os-backend/frontend/index.html
+```bash
+# Ship a change: branch, commit, push, open a PR, merge to main → Railway builds it
+git checkout -b feat/my-change
+git push -u origin feat/my-change
+gh pr create --base main
 ```
 
 ## Key file locations
 | File | Purpose |
 |---|---|
-| `frontend/index.html` | The entire frontend (single-page app). Edit the source at `../files/career-os-interactive.html`, then sync. |
+| `frontend/index.html` + `onboarding.js` / `onboarding.css` | Onboarding flow (resume → graph → interview) |
+| `frontend/workspace.html` + `workspace.js` | Workspace shell |
+| `frontend/panels/` | One file per workspace panel (Graph, Strength, Directions, Portrait, …) |
+| `frontend/components/` | Shared UI components (WorkspaceNav, ChatAssistPanel, FeedbackStrip) |
+| `frontend/lib/` | Shared frontend helpers (editing, selection menu, voice signals) |
 | `src/index.ts` | Express app entry point — router registration |
 | `src/routes/claude.ts` | All AI generation endpoints |
 | `src/routes/sessions.ts` | Session CRUD + stage-calibrated questions |
@@ -38,13 +43,13 @@ cp /Users/swapnaannojwala/Documents/careerOs/files/career-os-interactive.html \
 | `supabase/migrations/` | SQL migrations — run manually in Supabase SQL Editor |
 
 ## Architecture decisions
-- **No framework**: Single HTML file for frontend. No React, no build step.
+- **No framework**: Plain HTML + JS modules in `frontend/`. No React, no build step.
 - **State**: Session state is stored in `localStorage` as `cardStates` (rendered HTML) + raw data. Two slots (A/B) for two parallel sessions.
 - **Auth**: Supabase email+password. `_authToken` cached in memory. `_getToken()` for API calls.
 - **Career stage**: `detectStageProfile(graph)` in `summary.ts` — returns `{ stage: 'ic'|'leader'|'executive', isTransitioning, transitionDirection, titleCapabilityGap }`.
 - **Assembler pattern**: Every AI task has an assembler function in `index.ts` + a prompt builder in `tasks/`. Route handlers call `assembleContext()` then `callClaude()`.
 - **Copy tracking**: Always fire-and-forget. `logCopyEvent(...).catch(() => {})` pattern throughout.
-- **Frontend sync rule**: The source of truth for the frontend is `../files/career-os-interactive.html`. Sync to `frontend/index.html` before every deploy.
+- **Frontend source of truth**: the files in `frontend/` — edit them directly. Add new UI as a new file in `panels/`, `components/` or `lib/` rather than growing one big file.
 
 ## API surface
 ```
@@ -122,7 +127,7 @@ Run them in order:
 - **Never modify existing assembler tasks** — add new files in `tasks/`
 - **Copy tracking is always fire-and-forget**: `logCopyEvent(...).catch(() => {})`
 - **Migrations**: show the SQL file first, don't run it — user applies manually in Supabase
-- **Frontend source**: always edit `../files/career-os-interactive.html`, sync to `frontend/index.html`
+- **Frontend source**: edit files in `frontend/` directly; keep UI modular (one panel/component per file)
 - **TypeScript**: run `npx tsc --noEmit` before committing. Project uses `strict: true`, `commonjs`, `ES2020`.
 - **Node.detail is `string` (not optional)**; `Node.weight` is `1 | 2 | 3`
 

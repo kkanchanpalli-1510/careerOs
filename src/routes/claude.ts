@@ -14,6 +14,9 @@ import { supabaseAdmin } from '../db/client';
 import { getVoiceProfile } from '../lib/voiceProfile';
 import { generateGoalGhostNodes, buildGhostEdges } from '../assembler/tasks/goalGraph';
 import { evaluateArticleAgainstGhostNodes, buildEnrichmentToast } from '../assembler/tasks/articleEnrichment';
+import {
+  INTERVIEW_DIMENSIONS, InterviewAnswer,
+} from '../assembler/tasks/interviewQuestion';
 import type { Message } from '@anthropic-ai/sdk/resources/messages';
 
 const router = Router();
@@ -992,6 +995,143 @@ router.post('/goal-graph', async (req: Request, res: Response) => {
     const msg = err instanceof Error ? err.message : 'goal_graph failed';
     res.status(500).json({ error: msg });
   }
+});
+
+// ─── Mode 1 onboarding interview (doc 14) ─────────────────────
+
+// POST /claude/interview/next — the next question, or done
+//
+// Server decides which dimension is next by reading interview_answers, so the
+// client holds no interview state and a refreshed page resumes where it left off.
+
+router.post('/interview/next', async (req: Request, res: Response) => {
+  const userId = uid(req);
+  const { session_id } = req.body;
+  if (!session_id) { res.status(400).json({ error: 'session_id required' }); return; }
+
+  const session = await validateSessionOwnership(session_id, userId);
+  if (!session) { res.status(403).json({ error: 'Forbidden' }); return; }
+  if (!session.graph_data) {
+    res.status(409).json({ error: 'Run /extract before the interview' }); return;
+  }
+
+  const previous: InterviewAnswer[] = session.interview_answers ?? [];
+  const answered = new Set(previous.map(p => p.dimension));
+  const dimension = INTERVIEW_DIMENSIONS.find(d => !answered.has(d));
+
+  if (!dimension) { res.json({ done: true }); return; }
+
+  const index = INTERVIEW_DIMENSIONS.indexOf(dimension);
+
+  try {
+    const pkg = await assembleContext({
+      user_id: userId, task: 'interview_question',
+      params: { session_id, dimension },
+    });
+
+    const response = await callClaude(userId, session_id, 'interview_question', pkg, 300);
+    const { question, why } = parseJsonResponse<{ question: string; why: string }>(response);
+    if (!question?.trim()) throw new Error('empty question');
+
+    res.json({
+      question: question.trim(),
+      why:      (why ?? '').trim(),
+      dimension,
+      index,
+      total:    INTERVIEW_DIMENSIONS.length,
+      done:     false,
+    });
+  } catch (err) {
+    // Onboarding must never dead-end on a failed generation — the client falls
+    // back to its static question for this slot.
+    console.error('[interview_question]', err instanceof Error ? err.message : err);
+    res.status(503).json({ error: 'question_generation_failed', dimension, index });
+  }
+});
+
+// POST /claude/interview/answer — record an answer, enrich the graph from it
+
+router.post('/interview/answer', async (req: Request, res: Response) => {
+  const userId = uid(req);
+  const { session_id, dimension, question, why, answer } = req.body;
+  if (!session_id || !dimension || !question || !answer?.trim()) {
+    res.status(400).json({ error: 'session_id, dimension, question, answer required' }); return;
+  }
+  if (!INTERVIEW_DIMENSIONS.includes(dimension)) {
+    res.status(400).json({ error: `dimension must be one of ${INTERVIEW_DIMENSIONS.join(', ')}` }); return;
+  }
+
+  const session = await validateSessionOwnership(session_id, userId);
+  if (!session) { res.status(403).json({ error: 'Forbidden' }); return; }
+
+  const previous: InterviewAnswer[] = session.interview_answers ?? [];
+  const entry: InterviewAnswer = {
+    dimension, question,
+    why:      why ?? '',
+    answer:   answer.trim(),
+    asked_at: new Date().toISOString(),
+  };
+  // Re-answering a dimension replaces rather than duplicates it
+  const interview_answers = [...previous.filter(p => p.dimension !== dimension), entry];
+
+  // The answer is the thing that must survive. Persist it before attempting
+  // enrichment so a failed Claude call cannot lose what the user typed.
+  await updateSession(session_id, userId, { interview_answers });
+
+  const remaining = INTERVIEW_DIMENSIONS.filter(
+    d => !interview_answers.some(a => a.dimension === d)
+  );
+
+  let new_nodes: CareerGraph['nodes'] = [];
+  let new_edges: CareerGraph['edges'] = [];
+
+  if (session.graph_data && await checkRateLimit(userId, 'gap_enrichment')) {
+    try {
+      const questionIndex = INTERVIEW_DIMENSIONS.indexOf(dimension);
+      const pkg = await assembleContext({
+        user_id: userId, task: 'gap_enrichment',
+        params: { session_id, question, answer: entry.answer, question_index: questionIndex },
+      });
+
+      const response = await callClaude(userId, session_id, 'gap_enrichment', pkg, 400);
+      const enriched = parseJsonResponse<{ nodes: CareerGraph['nodes']; edges: CareerGraph['edges'] }>(response);
+
+      const graph: CareerGraph = session.graph_data;
+      const updatedGraph: CareerGraph = {
+        nodes: [...graph.nodes, ...(enriched.nodes ?? [])],
+        edges: [...graph.edges, ...(enriched.edges ?? [])],
+      };
+
+      const answers: string[] = session.answers ?? [];
+      answers[questionIndex] = entry.answer;
+
+      const skeleton = buildDeterministicSkeleton(
+        updatedGraph, session.insights, session.selected_branch, detectStageProfile(updatedGraph),
+      );
+      await updateSession(session_id, userId, {
+        graph_data:      updatedGraph,
+        career_summary:  skeleton,
+        answers,
+        enrich_count:    (session.enrich_count ?? 0) + 1,
+        summary_version: (session.summary_version ?? 0) + 1,
+      });
+
+      new_nodes = enriched.nodes ?? [];
+      new_edges = enriched.edges ?? [];
+    } catch (err) {
+      // Enrichment is a bonus, not a requirement. The interview continues.
+      console.error('[interview_answer:enrich]', err instanceof Error ? err.message : err);
+    }
+  }
+
+  updateVoiceFromAnswer(userId, entry.answer, 'enrichment').catch(() => {});
+
+  res.json({
+    new_nodes, new_edges,
+    answered:  interview_answers.length,
+    total:     INTERVIEW_DIMENSIONS.length,
+    done:      remaining.length === 0,
+  });
 });
 
 export default router;

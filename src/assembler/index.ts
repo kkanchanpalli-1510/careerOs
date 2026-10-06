@@ -5,10 +5,13 @@ import { buildCareerSummary, detectStageProfile } from './summary';
 import { buildInsightPrompt } from './tasks/insightGeneration';
 import { buildInsightRegenerationPrompt } from './tasks/insightRegeneration';
 import { buildLinkedInSummaryPrompt } from './tasks/linkedinSummary';
-import { buildShortBioPrompt } from './tasks/shortBio';
+import { buildShortBioPrompt, Addressing } from './tasks/shortBio';
 import { buildArticleDraftPrompt } from './tasks/articleDraft';
 import { buildContentIdeasPrompt } from './tasks/contentIdeas';
 import { buildNodeEnrichmentPrompt } from './tasks/nodeEnrichmentPrompt';
+import {
+  buildInterviewQuestionPrompt, InterviewDimension, InterviewAnswer,
+} from './tasks/interviewQuestion';
 import { getVoiceProfile } from '../lib/voiceProfile';
 import { getConnectedNodes, buildNudgeReason } from '../lib/nodeEnrichment';
 import { supabaseAdmin } from '../db/client';
@@ -29,6 +32,7 @@ const CEILINGS: Record<string, number> = {
   article_draft:             2000,
   content_ideas:              800,
   node_enrichment_question:   400,
+  interview_question:         600,
 };
 
 function tokens(text: string) { return Math.ceil(text.length / 4); }
@@ -66,6 +70,22 @@ async function getSession(sessionId: string, userId: string) {
     .single();
   if (error && error.code !== 'PGRST116') throw new Error(`DB error: ${error.message}`);
   return data;
+}
+
+/**
+ * How the user asked to be addressed. Never inferred — absent means neutral,
+ * which is a correct answer, not a missing one.
+ */
+async function getAddressing(userId: string): Promise<Addressing> {
+  const { data } = await supabaseAdmin
+    .from('users')
+    .select('preferred_name, pronouns')
+    .eq('id', userId)
+    .single();
+  return {
+    preferred_name: data?.preferred_name ?? null,
+    pronouns:       data?.pronouns ?? null,
+  };
 }
 
 async function getConversation(sessionId: string, nodeId: string, userId: string) {
@@ -115,6 +135,7 @@ export async function assembleContext(input: AssemblerInput): Promise<PromptPack
     case 'article_draft':             return assembleArticleDraft(input);
     case 'content_ideas':             return assembleContentIdeas(input);
     case 'node_enrichment_question':  return assembleNodeEnrichmentQuestion(input);
+    case 'interview_question':        return assembleInterviewQuestion(input);
     default: throw new Error(`AssemblerError: unknown task ${(input as never as { task: string }).task}`);
   }
 }
@@ -305,13 +326,25 @@ async function assembleFinalSynthesis(input: AssemblerInput): Promise<PromptPack
     .map(n => `[${n.type}] ${n.label} (w${n.weight})${n.year ? ` ${n.year}` : ''}: ${n.detail}`)
     .join('\n');
 
-  const system = `You are writing a career portrait. Celebrate first. Be specific and grounded — only in what you've been given. Sound like a brilliant friend who has studied their entire career.`;
+  const system = `You are writing a career portrait. Celebrate first. Be specific and grounded — only in what you've been given. Sound like a brilliant friend who has studied their entire career.
+
+Address them as "you" throughout — this is written for them to read. Never use a name, and never use gendered pronouns: nothing in a resume tells you someone's pronouns, and guessing wrong is worse than never guessing. If a third-person construction is unavoidable, use "they".`;
+
+  // Doc 14 — the interview is what they told us directly about motive and
+  // intent. The graph cannot show any of it.
+  const interview: InterviewAnswer[] = session.interview_answers ?? [];
+  const interviewBlock = interview.length
+    ? `Interview — what they told us in their own words:\n${
+        interview.map(a => `Q (${a.dimension}): ${a.question}\nA: ${a.answer}`).join('\n\n')
+      }`
+    : '';
 
   const user_context = [
     `Key career nodes (sorted recent-first):\n${topNodes}`,
     insights.strength?.identity_reframe ? `Identity: ${insights.strength.identity_reframe}.` : '',
     insights.strength?.insight ? `Core strength: ${insights.strength.insight}` : '',
     branch ? `Chosen direction: ${branch.title} — ${branch.description}` : '',
+    interviewBlock,
     answers.map((a, i) => a ? `Q${i + 1}: ${a}` : '').filter(Boolean).join('\n'),
   ].filter(Boolean).join('\n\n');
 
@@ -321,7 +354,10 @@ async function assembleFinalSynthesis(input: AssemblerInput): Promise<PromptPack
   "rare_factor": "one sentence — what makes this graph rare RIGHT NOW, not just historically",
   "next_action": "one concrete action toward their chosen direction, grounded in current momentum (recent nodes)",
   "gap": "one honest gap — framed as opportunity, not deficit" }
-Recency rule: nodes from ${CURRENT_YEAR - 2}–present should anchor the celebration, rare_factor, and next_action. Historical nodes provide context but should not dominate.`;
+Recency rule: nodes from ${CURRENT_YEAR - 2}–present should anchor the celebration, rare_factor, and next_action. Historical nodes provide context but should not dominate.${
+  interview.length ? `
+Grounding rule: draw on both the graph and the interview. The graph shows what they did; the interview shows why it mattered to them and what they are heading toward. Where the interview reveals motive the graph cannot show, the interview wins — identity and next_action in particular should reflect what they told you, not just what the nodes imply. Use their own words where they said something well.` : ''
+}`;
 
   const topNodesList = graph.nodes.filter(n => n.weight >= 2);
   const est = tokens(system + user_context + task_prompt);
@@ -618,7 +654,8 @@ async function assembleShortBio(input: AssemblerInput): Promise<PromptPackage> {
   if (!session) throw new Error('AssemblerError: session not found');
 
   const stageProfile = detectStageProfile(session.graph_data ?? { nodes: [], edges: [] });
-  const pkg = buildShortBioPrompt(session, stageProfile);
+  const addressing = await getAddressing(input.user_id).catch(() => undefined);
+  const pkg = buildShortBioPrompt(session, stageProfile, addressing);
 
   return {
     ...pkg,
@@ -694,4 +731,28 @@ async function assembleNodeEnrichmentQuestion(input: AssemblerInput): Promise<Pr
     cache_key: `node_eq:${session_id}:${node_id}`,
     metadata: { ...pkg.metadata, summary_version: session.summary_version ?? 0 },
   };
+}
+
+// ─── 16. interview_question (doc 14, Mode 1) ─────────────────
+
+async function assembleInterviewQuestion(input: AssemblerInput): Promise<PromptPackage> {
+  const { session_id, dimension } = input.params as {
+    session_id: string; dimension: InterviewDimension;
+  };
+  const session = await getSession(session_id, input.user_id);
+  if (!session) throw new Error('AssemblerError: session not found');
+
+  const graph: CareerGraph = session.graph_data ?? { nodes: [], edges: [] };
+  if (!graph.nodes.length) throw new Error('AssemblerError: no graph on this session');
+
+  const previous: InterviewAnswer[] = session.interview_answers ?? [];
+  const stageProfile = detectStageProfile(graph);
+
+  return buildInterviewQuestionPrompt(
+    dimension,
+    graph,
+    stageProfile,
+    previous,
+    session.insights?.strength?.insight,
+  );
 }
