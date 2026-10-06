@@ -133,7 +133,8 @@ async function callBackend(path, body = {}, method = 'POST') {
       'Content-Type': 'application/json',
       'Authorization': `Bearer ${token}`
     },
-    body: JSON.stringify(body)
+    // fetch throws if a GET/HEAD carries a body
+    ...(method === 'GET' || method === 'HEAD' ? {} : { body: JSON.stringify(body) })
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
@@ -199,26 +200,29 @@ MIT — Applied Generative AI for Digital Transformation (2024)
 UC Berkeley — Art and Science of Communication & Storytelling
 Osmania University — B.E. Electrical & Electronics (2003)`;
 
+// Doc 14 — the interview agent generates these from the user's own graph.
+// This set is the fallback used only when generation fails, so onboarding never
+// dead-ends on a bad Claude call. Order matches INTERVIEW_DIMENSIONS.
+const INTERVIEW_DIMENSIONS = ['energy', 'rationale', 'direction'];
+
 const QUESTIONS = [
   {
-    num: "Question 1 of 4",
-    text: "Tell me about something significant you built or changed that nobody asked you to.",
-    why: "Resumes document assignments. This surfaces your initiative pattern — the decisions you made before anyone knew they needed to be made. It's the highest-signal node for predicting how you'll operate in new environments."
-  },
-  {
-    num: "Question 2 of 4",
-    text: "What do colleagues bring to you that they don't bring to anyone else on your team?",
-    why: "This surfaces tacit expertise — the thing you've become known for that exists nowhere in your job description. It's usually the most differentiated thing about you, and the thing you've stopped noticing because it feels obvious."
-  },
-  {
-    num: "Question 3 of 4",
+    num: "Question 1 of 3",
+    dimension: "energy",
     text: "Which parts of your work in the last two years made you lose track of time — and which felt like a tax?",
-    why: "Resumes list everything with equal weight. This tells us which nodes are growing edges and which are terminal — what you'll keep developing vs. what you've been executing out of obligation. It determines which branches are actually reachable for you."
+    why: "Resumes list everything with equal weight. This tells us which work you'd choose again, and which you've been executing out of obligation."
   },
   {
-    num: "Question 4 of 4",
-    text: "What's the hardest decision you've made in your career — not technically hard, but consequentially hard?",
-    why: "This surfaces your decision architecture — the judgment quality and risk tolerance underlying your trajectory. It's almost always the most revealing thing in the session, and usually something you've never articulated as a career signal before."
+    num: "Question 2 of 3",
+    dimension: "rationale",
+    text: "Think of the biggest career move you've made. What were you actually optimizing for?",
+    why: "The reasoning behind a move says more about what you value than any list of skills. It's how you decide, not what you decided."
+  },
+  {
+    num: "Question 3 of 3",
+    dimension: "direction",
+    text: "Where are you trying to get to next — and why does that particular path matter to you?",
+    why: "Not the title. The reason behind wanting it. That's what determines which directions are actually worth showing you."
   }
 ];
 
@@ -229,14 +233,14 @@ const CONV_HTML_VERSION = 2;
 
 // What gets persisted (excludes DOM elements: svgNodeEls, svgEdgeEls)
 const PERSIST_FIELDS = [
-  'session_id','graphData','answers','enrichCount','step','nodePositions',
+  'session_id','graphData','answers','interviewAnswers','enrichCount','step','nodePositions',
   'nodeChatHistory','convHTML','convHTMLVersion','scrollTop','cardStates','branches','selectedBranch',
   'careerChatHistory'
 ];
 
 const sessions = {
-  A: { session_id:null, graphData:null, svgNodeEls:{}, svgEdgeEls:[], answers:[], enrichCount:0, step:0, nodePositions:{}, nodeChatHistory:{}, branches:null, selectedBranch:null, careerChatHistory:[] },
-  B: { session_id:null, graphData:null, svgNodeEls:{}, svgEdgeEls:[], answers:[], enrichCount:0, step:0, nodePositions:{}, nodeChatHistory:{}, branches:null, selectedBranch:null, careerChatHistory:[] }
+  A: { session_id:null, graphData:null, svgNodeEls:{}, svgEdgeEls:[], answers:[], interviewAnswers:[], enrichCount:0, step:0, nodePositions:{}, nodeChatHistory:{}, branches:null, selectedBranch:null, careerChatHistory:[] },
+  B: { session_id:null, graphData:null, svgNodeEls:{}, svgEdgeEls:[], answers:[], interviewAnswers:[], enrichCount:0, step:0, nodePositions:{}, nodeChatHistory:{}, branches:null, selectedBranch:null, careerChatHistory:[] }
 };
 let currentSession = 'A';
 
@@ -323,7 +327,7 @@ function clearSessions() {
 
   localStorage.removeItem(STORAGE_KEY);
   ['A','B'].forEach(sid => {
-    sessions[sid] = { session_id:null, graphData:null, svgNodeEls:{}, svgEdgeEls:[], answers:[], enrichCount:0, step:0, nodePositions:{}, nodeChatHistory:{}, branches:null, selectedBranch:null, careerChatHistory:[] };
+    sessions[sid] = { session_id:null, graphData:null, svgNodeEls:{}, svgEdgeEls:[], answers:[], interviewAnswers:[], enrichCount:0, step:0, nodePositions:{}, nodeChatHistory:{}, branches:null, selectedBranch:null, careerChatHistory:[] };
   });
   currentSession = 'A';
   location.reload();
@@ -441,6 +445,8 @@ function restoreSession() {
       document.getElementById('bodyPortrait').innerHTML = cs.portrait.html;
       showCard('cardPortrait', false);
       if (!cs.portrait.active) collapseCard('cardPortrait');
+      // Show goal gap section for returning users who have completed the session
+      showGoalGapSection();
       // Always show Share Your Story section when portrait exists
       const _sssR = document.getElementById('shareStorySection');
       if (_sssR) _sssR.style.display = '';
@@ -775,7 +781,7 @@ async function startSession() {
     await typeInsight(insightData.insight.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>'));
     setProgress(40);
 
-    addMsg('system', `That strength is real — and it shows up across <strong>${S().graphData.nodes.length} nodes</strong> in your graph. Now I want to make it sharper. Four quick questions that surface what resumes always miss. Your answers enrich the graph in real time and make the insight more precise.`);
+    addMsg('system', `That strength is real — and it shows up across <strong>${S().graphData.nodes.length} nodes</strong> in your graph. Now I want to understand the part your resume can't show me. Three questions, written from your actual graph — what you like doing, why you've made the moves you have, and where you're headed.`);
 
     await sleep(600);
     showQuestion(0);
@@ -787,15 +793,51 @@ async function startSession() {
   }
 }
 
-// ── QUESTIONS ──
-function showQuestion(idx) {
+// ── QUESTIONS (doc 14 — generated per user from their graph) ──
+
+// Metadata for the question currently on screen, needed when submitting.
+// Keyed by index so a re-render can't desync question from answer.
+window._interviewQ = {};
+
+/** Ask the backend for the next question. Falls back to the static set. */
+async function _fetchInterviewQuestion(idx) {
+  try {
+    const r = await callBackend('claude/interview/next', { session_id: S().session_id });
+    if (r.done) return null;
+    if (!r.question) throw new Error('no question');
+    return {
+      num:       `Question ${(r.index ?? idx) + 1} of ${r.total ?? QUESTIONS.length}`,
+      text:      r.question,
+      why:       r.why || '',
+      dimension: r.dimension || INTERVIEW_DIMENSIONS[idx],
+      generated: true,
+    };
+  } catch (e) {
+    const f = QUESTIONS[idx];
+    return f ? { ...f, generated: false } : null;
+  }
+}
+
+async function showQuestion(idx) {
   if (idx >= QUESTIONS.length) { showBranches(); return; }
-  const q = QUESTIONS[idx];
+
   const s = document.getElementById('convScroll');
 
+  // Placeholder while the question is written — the card animates in, then fills
   const div = document.createElement('div');
   div.className = 'q-card';
   div.id = `qcard-${idx}`;
+  div.innerHTML = `
+    <div class="q-num">Question ${idx + 1} of ${QUESTIONS.length}</div>
+    <div class="q-text" style="opacity:0.45;">Reading your graph…</div>`;
+  s.appendChild(div);
+  scrollDown();
+
+  const q = await _fetchInterviewQuestion(idx);
+  if (!q) { div.remove(); showBranches(); return; }
+
+  window._interviewQ[idx] = q;
+
   div.innerHTML = `
     <div class="q-num">${q.num}</div>
     <div class="q-text">${q.text}</div>
@@ -804,11 +846,9 @@ function showQuestion(idx) {
       <textarea class="ans-input" id="ans-${idx}" placeholder="Take your time — be specific. A single concrete example is more valuable than a general description…"></textarea>
       <button class="ans-btn" onclick="submitAnswer(${idx})">Submit →</button>
     </div>`;
-  s.appendChild(div);
   scrollDown();
 
-  // Focus after animation
-  setTimeout(() => document.getElementById(`ans-${idx}`)?.focus(), 400);
+  setTimeout(() => document.getElementById(`ans-${idx}`)?.focus(), 200);
 }
 
 async function submitAnswer(idx) {
@@ -902,12 +942,11 @@ async function showBranches() {
 
     addMsg('system', `Three career directions are ready — tap the <strong>Career Directions</strong> tab any time to review them. Now pick the one that feels most alive.`);
 
-    setProgress(75);
+    setProgress(80);
     setStep(4);
 
     await sleep(500);
-    addMsg('system', `Which of these feels most alive to you? Tap one to select it — then two more questions and I'll show you exactly what to do next.`);
-    showQuestion(2);
+    addMsg('system', `Which of these feels most alive to you? Tap one to select it and I'll write your Career Portrait around it.`);
 
   } catch(e) {
     t.remove();
@@ -921,13 +960,23 @@ function selectBranch(idx) {
 }
 
 function selectBranchCard(idx) {
+  const first = S().selectedBranch === null || S().selectedBranch === undefined;
   S().selectedBranch = idx;
   document.querySelectorAll('.dir-card').forEach((c,i) => {
     c.className = 'dir-card' + (i===idx?' selected':'');
   });
   saveDebounced(500);
-  // Return to conv-scroll so user can see and answer the follow-up question
   collapseCard('cardDirections');
+
+  // Doc 14 — the interview is already done, so selecting a direction is the
+  // last input needed before the portrait. Guard against re-firing on a
+  // second click.
+  if (first && !window._portraitStarted) {
+    window._portraitStarted = true;
+    const b = S().branches?.[idx];
+    addMsg('user', b?.title ? `${b.title}` : `Direction ${idx + 1}`);
+    setTimeout(() => showFinalReveal(), 400);
+  }
 }
 
 // After Q3 and Q4, show final reveal
@@ -988,95 +1037,72 @@ async function showFinalReveal() {
   }
 }
 
-// Override submitAnswer for Q3 and Q4 to trigger final reveal after Q4
+// Doc 14 — three generated questions, then branches, then the portrait.
+// Replaces the old 4-question flow that split around branch selection.
 const _origSubmit = submitAnswer;
 window.submitAnswer = async function(idx) {
   const val = document.getElementById(`ans-${idx}`)?.value.trim();
   if (!val) return;
+
+  const q = window._interviewQ[idx] || QUESTIONS[idx];
+  const dim = q?.dimension || INTERVIEW_DIMENSIONS[idx];
   S().answers[idx] = val;
+
+  // Mirror what the backend stores so the Survey tab and a mid-flow restore
+  // both show the question that was actually asked
+  const _ia = (S().interviewAnswers || []).filter(a => a.dimension !== dim);
+  _ia.push({ dimension: dim, question: q?.text || '', why: q?.why || '', answer: val });
+  S().interviewAnswers = _ia;
   document.getElementById(`ans-${idx}`).disabled = true;
   document.querySelector(`#qcard-${idx} .ans-btn`).disabled = true;
   addMsg('user', val);
-  setProgress(40 + (idx + 1) * 10);
+  setProgress(40 + (idx + 1) * 11);
 
-  if (idx <= 1) {
-    // Q1, Q2 — enrich graph via backend
-    const t = addThinking('Enriching your graph');
-    try {
-      const ed = await callBackend('claude/enrich', {
-        session_id: S().session_id,
-        question: QUESTIONS[idx].text,
-        answer: val,
-        question_index: idx
-      });
-      t.remove();
-      if (ed.new_nodes?.length) {
-        ed.new_nodes.forEach(n => { graphData.nodes.push(n); addEnrichedNodeToGraph(n); });
-        enrichCount += ed.new_nodes.length;
-        document.getElementById('enrichCount').textContent = enrichCount;
-        flashNewNodes(ed.new_nodes.map(n => n.id));
-        addMsg('system', `<em>✦ Added to your graph:</em> ${ed.new_nodes.length} new node${ed.new_nodes.length > 1 ? 's' : ''} — ${ed.new_nodes.map(n => n.label).join(', ')}`);
-      }
-      if (ed.new_edges?.length) {
-        ed.new_edges.forEach(e => graphData.edges.push(e));
-        addEnrichedEdgesToGraph(ed.new_edges);
-      }
-    } catch(e) { t.remove(); }
+  const isLast = idx >= INTERVIEW_DIMENSIONS.length - 1;
+  const t = addThinking(isLast ? 'Taking that in' : 'Enriching your graph');
 
-    await sleep(400);
-    if (idx === 0) showQuestion(1);
-    else {
-      setStep(3);
-      document.getElementById('pill2').className = 'stage-pill done';
-      addMsg('system', `That's a great signal. Your graph now has <strong>${S().graphData.nodes.length} nodes</strong> — enough to show you three directions your strengths make possible.`);
-      await sleep(600);
-      await showBranches();
+  try {
+    const ed = await callBackend('claude/interview/answer', {
+      session_id: S().session_id,
+      dimension:  dim,
+      question:   q?.text || '',
+      why:        q?.why || '',
+      answer:     val,
+    });
+    t.remove();
+
+    if (ed.new_nodes?.length) {
+      ed.new_nodes.forEach(n => { graphData.nodes.push(n); addEnrichedNodeToGraph(n); });
+      enrichCount += ed.new_nodes.length;
+      const es = document.getElementById('enrichStat');
+      if (es) es.style.display = 'block';
+      document.getElementById('enrichCount').textContent = enrichCount;
+      document.getElementById('nodeCount').textContent = S().graphData.nodes.length;
+      flashNewNodes(ed.new_nodes.map(n => n.id));
+      addMsg('system', `<em>✦ Added to your graph:</em> ${ed.new_nodes.map(n => n.label).join(', ')}`);
     }
-  } else if (idx === 2) {
-    // Q3 — enrich silently (saves answer to DB), then show Q4
-    callBackend('claude/enrich', {
-      session_id: S().session_id,
-      question: QUESTIONS[idx].text,
-      answer: val,
-      question_index: idx
-    }).then(ed => {
-      if (ed.new_nodes?.length) {
-        ed.new_nodes.forEach(n => { graphData.nodes.push(n); addEnrichedNodeToGraph(n); });
-        enrichCount += ed.new_nodes.length;
-        document.getElementById('enrichCount').textContent = enrichCount;
-        flashNewNodes(ed.new_nodes.map(n => n.id));
-      }
-      if (ed.new_edges?.length) {
-        ed.new_edges.forEach(e => graphData.edges.push(e));
-        addEnrichedEdgesToGraph(ed.new_edges);
-      }
-    }).catch(() => {});
-    await sleep(400);
-    addMsg('system', `Love that. One last question — the most revealing one.`);
-    await sleep(400);
-    showQuestion(3);
-  } else if (idx === 3) {
-    // Q4 — enrich silently, then final reveal
-    callBackend('claude/enrich', {
-      session_id: S().session_id,
-      question: QUESTIONS[idx].text,
-      answer: val,
-      question_index: idx
-    }).then(ed => {
-      if (ed.new_nodes?.length) {
-        ed.new_nodes.forEach(n => { graphData.nodes.push(n); addEnrichedNodeToGraph(n); });
-        enrichCount += ed.new_nodes.length;
-        document.getElementById('enrichCount').textContent = enrichCount;
-        flashNewNodes(ed.new_nodes.map(n => n.id));
-      }
-      if (ed.new_edges?.length) {
-        ed.new_edges.forEach(e => graphData.edges.push(e));
-        addEnrichedEdgesToGraph(ed.new_edges);
-      }
-    }).catch(() => {});
-    await sleep(600);
-    await showFinalReveal();
+    if (ed.new_edges?.length) {
+      ed.new_edges.forEach(e => graphData.edges.push(e));
+      addEnrichedEdgesToGraph(ed.new_edges);
+    }
+  } catch(e) {
+    t.remove();
   }
+
+  await sleep(400);
+
+  if (!isLast) {
+    showQuestion(idx + 1);
+    return;
+  }
+
+  // All three answered — directions next
+  setStep(3);
+  const p2 = document.getElementById('pill2');
+  if (p2) p2.className = 'stage-pill done';
+  addMsg('system', `That's the signal I needed. Your graph has <strong>${S().graphData.nodes.length} nodes</strong> and I now know what you're optimizing for — enough to show you three directions worth taking seriously.`);
+  await sleep(600);
+  await showBranches();
 };
 
 // ── NEXT-STEP ENGAGEMENT ──
@@ -1130,6 +1156,7 @@ function showNextSteps() {
   scroll.appendChild(sec);
   scroll.scrollTop = scroll.scrollHeight;
   showCareerChatBar();
+  showGoalGapSection();
 }
 
 function handleNextStep(type) {
@@ -1604,7 +1631,8 @@ function buildRestoredConvHTML() {
   const hasBranches  = !!(S().cardStates?.directions?.html);
   const hasStrength  = !!(S().cardStates?.strength?.html);
   const nodeCount    = S().graphData?.nodes?.length || 0;
-  const answersCount = (S().answers || []).filter(Boolean).length;
+  const answersCount = (S().interviewAnswers || []).length
+    || (S().answers || []).filter(Boolean).length;
 
   // Status badge row
   const badge = (label, color, done) => {
@@ -1627,11 +1655,11 @@ function buildRestoredConvHTML() {
   if (hasPortrait) {
     bodyHTML = buildNextStepsPillsHTML();
   } else {
-    const remaining = 4 - answersCount;
+    const remaining = INTERVIEW_DIMENSIONS.length - answersCount;
     const desc = hasBranches
       ? `You have your core strength and career directions. ${remaining} question${remaining !== 1 ? 's' : ''} remain${remaining === 1 ? 's' : ''} to complete your Career Portrait.`
       : hasStrength
-      ? `You have your core strength. ${answersCount > 0 ? `${answersCount} of 4 questions answered.` : 'Four questions will surface your career directions and portrait.'}`
+      ? `You have your core strength. ${answersCount > 0 ? `${answersCount} of ${INTERVIEW_DIMENSIONS.length} questions answered.` : 'Three questions will surface your career directions and portrait.'}`
       : `Your career graph is built (${nodeCount} nodes). Continue to discover your core strength and career directions.`;
     bodyHTML = `<div style="font-size:13px;color:var(--text2);line-height:1.75;margin-bottom:16px;">${desc}</div>
       <button onclick="continueSession()" id="continueBtn" style="
@@ -1653,17 +1681,31 @@ function buildRestoredConvHTML() {
 // ── SURVEY PANE ──
 // Builds the Q&A answers view shown in the Survey tab at step 5
 function buildSurveyHTML() {
-  const answers = S().answers || [];
-  const rows = QUESTIONS.map((q, i) => `
-    <div style="margin-bottom:22px;padding-bottom:22px;${i < QUESTIONS.length-1 ? 'border-bottom:1px solid var(--border);' : ''}">
+  // Doc 14 — questions are generated per user, so render what was actually
+  // asked. Falls back to the static set for sessions predating the interview.
+  const interview = S().interviewAnswers || [];
+  const answers   = S().answers || [];
+
+  const items = INTERVIEW_DIMENSIONS.map((dim, i) => {
+    const rec = interview.find(a => a.dimension === dim);
+    const asked = rec || window._interviewQ?.[i] || QUESTIONS[i] || {};
+    return {
+      num:    `Question ${i + 1} of ${INTERVIEW_DIMENSIONS.length}`,
+      text:   rec?.question || asked.text || asked.question || '',
+      answer: rec?.answer || answers[i] || '',
+    };
+  }).filter(q => q.text);
+
+  const rows = items.map((q, i) => `
+    <div style="margin-bottom:22px;padding-bottom:22px;${i < items.length-1 ? 'border-bottom:1px solid var(--border);' : ''}">
       <div style="font-family:'DM Mono',monospace;font-size:8px;color:var(--accent);
         letter-spacing:0.12em;text-transform:uppercase;margin-bottom:7px;">${q.num}</div>
       <div style="font-family:'Cormorant Garamond',serif;font-size:15px;font-weight:400;
         font-style:italic;line-height:1.45;color:var(--text);margin-bottom:10px;">${q.text}</div>
       <div style="font-size:12px;color:var(--text2);line-height:1.75;
         background:var(--surface2);padding:12px 14px;border-radius:6px;
-        border-left:2px solid var(--accent);">${answers[i]
-          ? answers[i].replace(/\n/g,'<br>')
+        border-left:2px solid var(--accent);">${q.answer
+          ? q.answer.replace(/\n/g,'<br>')
           : '<span style="color:var(--text3);font-style:italic;">Not answered yet</span>'
         }</div>
     </div>`).join('');
@@ -1683,7 +1725,10 @@ async function continueSession() {
   const hasPortrait  = !!(S().cardStates?.portrait?.html);
   const hasBranches  = !!(S().cardStates?.directions?.html);
   const hasStrength  = !!(S().cardStates?.strength?.html);
-  const answersCount = (S().answers || []).filter(Boolean).length;
+  // Doc 14 — interview progress comes from the backend, not localStorage
+  const answersCount = (S().interviewAnswers || []).length
+    || (S().answers || []).filter(Boolean).length;
+  const TOTAL_Q = INTERVIEW_DIMENSIONS.length;
 
   if (hasPortrait) {
     showNextSteps();
@@ -1701,7 +1746,7 @@ async function continueSession() {
       if (insightData.pattern_nodes) highlightNodes(insightData.pattern_nodes);
       await typeInsight(insightData.insight.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>'));
       setStep(2); setProgress(40);
-      addMsg('system', `That strength is real — it shows up across <strong>${S().graphData?.nodes?.length || 0} nodes</strong>. Four questions to sharpen the signal.`);
+      addMsg('system', `That strength is real — it shows up across <strong>${S().graphData?.nodes?.length || 0} nodes</strong>. Three questions to sharpen the signal.`);
       await sleep(600);
       showQuestion(answersCount);
     } catch(e) {
@@ -1713,9 +1758,9 @@ async function continueSession() {
 
   if (!hasBranches) {
     // Strength exists, continue Q&A toward branches
-    addMsg('system', `Continuing your session${answersCount > 0 ? ` — you've answered ${answersCount} of 4 questions` : ''}.`);
+    addMsg('system', `Continuing your session${answersCount > 0 ? ` — you've answered ${answersCount} of ${TOTAL_Q} questions` : ''}.`);
     await sleep(400);
-    if (answersCount < 2) {
+    if (answersCount < TOTAL_Q) {
       showQuestion(answersCount);
     } else {
       // Both Q1+Q2 answered, generate branches
@@ -1728,16 +1773,21 @@ async function continueSession() {
     return;
   }
 
-  // Has branches, no portrait — continue with Q3/Q4
-  addMsg('system', `Welcome back. ${4 - answersCount} question${4 - answersCount !== 1 ? 's' : ''} to go for your Career Portrait.`);
-  await sleep(400);
-  if (answersCount <= 2) {
-    showQuestion(2);
-  } else if (answersCount === 3) {
-    showQuestion(3);
-  } else {
-    await showFinalReveal();
+  // Branches exist, no portrait yet
+  if (answersCount < TOTAL_Q) {
+    const left = TOTAL_Q - answersCount;
+    addMsg('system', `Welcome back. ${left} question${left !== 1 ? 's' : ''} to go for your Career Portrait.`);
+    await sleep(400);
+    showQuestion(answersCount);
+    return;
   }
+
+  // Interview done — the only thing left is choosing a direction
+  if (S().selectedBranch === null || S().selectedBranch === undefined) {
+    addMsg('system', `Welcome back. Pick the direction that feels most alive in the <strong>Career Directions</strong> tab and I'll write your portrait.`);
+    return;
+  }
+  await showFinalReveal();
 }
 
 // ── INSIGHT TYPEWRITER ──
@@ -2017,6 +2067,10 @@ async function generateShortBio() {
     outputEl.style.display = '';
     document.getElementById('sBioFooter').style.display = 'flex';
     saveDebounced(300);
+    // Point of need: they've just read a bio written as "they" — the payoff
+    // for answering is visible on screen rather than promised in advance.
+    if (!window._profile) await loadProfile();
+    offerAddressing('bio', 'spanel-bio');
   } catch (err) {
     outputEl.textContent = `Error: ${err.message}`;
     outputEl.style.display = '';
@@ -2318,18 +2372,31 @@ async function typeInsight(html) {
   const plain = html.replace(/<[^>]+>/g, '');
   textEl.innerHTML = '<span class="insight-cursor"></span>';
 
-  let i = 0;
+  // Time-based, not tick-based. Browsers throttle timers to ~1s in a
+  // backgrounded tab, and the whole onboarding flow awaits this promise — a
+  // per-character interval would stall the interview for anyone who tabs away.
+  // Deriving progress from elapsed time means a throttled tab catches up
+  // instead of crawling, and the cap bounds it either way.
+  const MS_PER_CHAR = 22;
+  const MAX_MS = 9000;
+  const duration = Math.min(plain.length * MS_PER_CHAR, MAX_MS);
+  const started = Date.now();
+
   await new Promise(resolve => {
+    const finish = () => {
+      clearInterval(interval);
+      textEl.innerHTML = html;
+      resolve();
+    };
     const interval = setInterval(() => {
-      if (i >= plain.length) {
-        clearInterval(interval);
-        textEl.innerHTML = html;
-        resolve();
-        return;
-      }
-      textEl.innerHTML = plain.slice(0, i+1) + '<span class="insight-cursor"></span>';
-      i++;
+      const elapsed = Date.now() - started;
+      if (elapsed >= duration) { finish(); return; }
+      const shown = Math.ceil((elapsed / duration) * plain.length);
+      textEl.innerHTML = plain.slice(0, shown) + '<span class="insight-cursor"></span>';
     }, 22);
+    // Belt and braces: a tab throttled hard enough that the interval barely
+    // fires still resolves on schedule.
+    setTimeout(finish, duration + 200);
   });
   saveDebounced(500);
   // Brief pause so user reads the insight, then return to conv-scroll for Q&A
@@ -2636,6 +2703,197 @@ function resetHighlight() {
 
 // ── GRAPH SEARCH ──
 let _graphSearchTimer = null;
+
+// ── GOAL + GAP SECTION ──────────────────────────────────────────────────────
+
+function showGoalGapSection() {
+  _renderGoalHistory();
+  const title = window._lastGoalTitle || '';
+  if (title) document.getElementById('goalTitleInp').value = title;
+}
+
+function openGoalDD() {
+  _renderGoalHistory();
+  const dd = document.getElementById('goalHistoryDd');
+  if (dd && (window._goalHistory || []).length) dd.classList.add('open');
+}
+
+function closeGoalDD() {
+  document.getElementById('goalHistoryDd')?.classList.remove('open');
+}
+
+function onGoalType() {
+  const status = document.getElementById('goalGapStatus');
+  if (status) { status.textContent = ''; status.classList.remove('err'); }
+  const dd = document.getElementById('goalHistoryDd');
+  const inp = document.getElementById('goalTitleInp');
+  if (!dd || !inp) return;
+  const q = inp.value.toLowerCase();
+  const history = window._goalHistory || [];
+  const filtered = q ? history.filter(t => t.toLowerCase().includes(q)) : history;
+  if (!filtered.length) { dd.classList.remove('open'); return; }
+  dd.innerHTML = filtered.map((t, i) =>
+    `<div class="gsb-dd-item" onclick="_selectGoalHistory(${history.indexOf(t)})">
+       <span class="gsb-dd-icon">◈</span><span style="flex:1">${t}</span>
+       <button class="gsb-dd-del" onclick="_deleteGoalHistory(event,${history.indexOf(t)})" title="Remove">×</button>
+     </div>`).join('');
+  dd.classList.add('open');
+}
+
+function onGoalKey(ev) {
+  if (ev.key === 'Enter') { closeGoalDD(); triggerShowGaps(); }
+  if (ev.key === 'Escape') closeGoalDD();
+}
+
+function _renderGoalHistory() {
+  const dd = document.getElementById('goalHistoryDd');
+  if (!dd) return;
+  const history = window._goalHistory || [];
+  if (!history.length) {
+    dd.innerHTML = '<div class="gsb-dd-empty">No saved goals yet</div>';
+    return;
+  }
+  dd.innerHTML = '<div class="gsb-dd-header">Recent targets</div>' +
+    history.map((t, i) =>
+      `<div class="gsb-dd-item" onclick="_selectGoalHistory(${i})">
+         <span class="gsb-dd-icon">◈</span><span style="flex:1">${t}</span>
+         <button class="gsb-dd-del" onclick="_deleteGoalHistory(event,${i})" title="Remove">×</button>
+       </div>`).join('');
+}
+
+function _selectGoalHistory(i) {
+  const history = window._goalHistory || [];
+  const title = history[i];
+  if (!title) return;
+  document.getElementById('goalTitleInp').value = title;
+  closeGoalDD();
+  const status = document.getElementById('goalGapStatus');
+  if (status) { status.textContent = ''; status.classList.remove('err'); }
+  triggerShowGaps();
+}
+
+function _deleteGoalHistory(ev, i) {
+  ev.stopPropagation();
+  if (window._goalHistory) window._goalHistory.splice(i, 1);
+  _renderGoalHistory();
+}
+
+let _gapsShown = false;
+
+async function triggerShowGaps() {
+  const inp = document.getElementById('goalTitleInp');
+  const btn = document.getElementById('goalGapBtn');
+  const status = document.getElementById('goalGapStatus');
+  const chips = document.getElementById('goalGapChips');
+  const sid = S().session_id;
+  const title = inp?.value.trim();
+
+  if (!title) {
+    status.classList.add('err');
+    status.textContent = 'Enter a target role first.';
+    inp?.focus();
+    return;
+  }
+  status.classList.remove('err');
+
+  // Clear mode
+  if (_gapsShown) {
+    // Remove ghost nodes from graph
+    const graph = S().graphData;
+    if (graph) {
+      graph.nodes = graph.nodes.filter(n => !n.ghost);
+      graph.edges = graph.edges.filter(e => !e.ghost);
+    }
+    document.getElementById('goalGapChips').innerHTML = '';
+    document.getElementById('goalGapChips').style.display = 'none';
+    btn.textContent = 'Show my gaps →';
+    status.textContent = '';
+    _gapsShown = false;
+    // Remove ghost nodes from SVG without full re-render
+    rerenderGraph();
+    return;
+  }
+
+  // Generate gaps
+  btn.disabled = true;
+  btn.textContent = 'Analyzing…';
+  status.textContent = `Finding gaps for "${title}"…`;
+
+  try {
+    const token = _getToken();
+    const res = await fetch(`${BACKEND_URL}/api/v1/claude/goal-graph`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+      body: JSON.stringify({ session_id: sid, goal_title: title }),
+    });
+    if (!res.ok) throw new Error('goal-graph failed');
+    const data = await res.json();
+
+    // Merge ghost nodes into graph state
+    const graph = S().graphData;
+    if (graph && data.ghost_nodes?.length) {
+      graph.nodes = [...graph.nodes.filter(n => !n.ghost), ...data.ghost_nodes];
+      const ghostEdges = data.ghost_edges || buildLocalGhostEdges(data.ghost_nodes, graph.nodes);
+      graph.edges = [...graph.edges.filter(e => !e.ghost), ...ghostEdges];
+    }
+
+    // Re-render graph to show ghost nodes
+    rerenderGraph();
+
+    // Show chips
+    if (data.ghost_nodes?.length) {
+      chips.innerHTML = data.ghost_nodes.map(n =>
+        `<span class="goal-gap-chip">${n.label}</span>`).join('');
+      chips.style.display = 'flex';
+    }
+
+    btn.textContent = 'Clear gaps ×';
+    status.textContent = `${data.ghost_nodes?.length || 0} gaps identified for "${title}"`;
+    _gapsShown = true;
+    window._lastGoalTitle = title;
+
+    // Save to DB history (fire-and-forget)
+    if (sid) {
+      fetch(`${BACKEND_URL}/api/v1/sessions/${sid}/goal-history`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${_getToken()}` },
+        body: JSON.stringify({ goal_title: title }),
+      }).then(r => r.json()).then(d => {
+        window._goalHistory = d.goal_history || [];
+        _renderGoalHistory();
+      }).catch(() => {});
+    }
+
+  } catch (err) {
+    status.classList.add('err');
+    status.textContent = 'Could not generate gaps — try again.';
+    btn.textContent = 'Show my gaps →';
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+function buildLocalGhostEdges(ghostNodes, allNodes) {
+  const realHigh = allNodes.filter(n => !n.ghost && (n.weight||1) >= 2).slice(0, 10);
+  return ghostNodes.map(ghost => {
+    const gWords = new Set(ghost.label.toLowerCase().split(/\s+/));
+    let best = realHigh[0];
+    let bestScore = 0;
+    for (const r of realHigh) {
+      const rWords = new Set(r.label.toLowerCase().split(/\s+/));
+      const score = [...gWords].filter(w => rWords.has(w)).length;
+      if (score > bestScore) { bestScore = score; best = r; }
+    }
+    return best ? { source: best.id, target: ghost.id, relation: 'LED_TO', ghost: true } : null;
+  }).filter(Boolean);
+}
+
+// Close history dropdown on outside click
+document.addEventListener('click', ev => {
+  const wrap = document.getElementById('gsbComboWrap');
+  if (wrap && !wrap.contains(ev.target))
+    document.getElementById('goalHistoryDd')?.classList.remove('open');
+});
 
 function onGraphSearch(query) {
   clearTimeout(_graphSearchTimer);
@@ -3101,6 +3359,14 @@ async function onAuthenticated(user) {
   // Show user email + sign out in header
   document.getElementById('authStatus').innerHTML = `
     <span style="font-family:'DM Mono',monospace;font-size:9px;color:var(--text2);letter-spacing:0.06em;">${user.email}</span>
+    <button onclick="openProfile()" style="
+      background:none;border:1px solid var(--border2);color:var(--text2);
+      font-family:'DM Mono',monospace;font-size:9px;letter-spacing:0.06em;text-transform:uppercase;
+      padding:4px 10px;border-radius:4px;cursor:pointer;transition:all 0.2s;white-space:nowrap;"
+      onmouseover="this.style.borderColor='var(--accent)';this.style.color='var(--accent)'"
+      onmouseout="this.style.borderColor='var(--border2)';this.style.color='var(--text2)'">
+      Profile
+    </button>
     <button onclick="signOut()" style="
       background:none;border:1px solid var(--border2);color:var(--text2);
       font-family:'DM Mono',monospace;font-size:9px;letter-spacing:0.06em;text-transform:uppercase;
@@ -3135,6 +3401,12 @@ async function onAuthenticated(user) {
         sessions[slot].answers       = bs.answers          || [];
         sessions[slot].enrichCount   = bs.enrich_count     || 0;
         sessions[slot].selectedBranch = bs.selected_branch ?? null;
+        // Doc 14 — backend owns interview progress; restore reads it from here
+        sessions[slot].interviewAnswers = bs.interview_answers || [];
+        // Load goal history for the active slot into window._goalHistory
+        if (slot === currentSession && bs.goal_history?.length) {
+          window._goalHistory = bs.goal_history;
+        }
         // Restore persisted graph layout from backend (takes precedence over localStorage)
         if (bs.node_positions && Object.keys(bs.node_positions).length) {
           sessions[slot].nodePositions = bs.node_positions;
@@ -3498,3 +3770,153 @@ document.getElementById('btnSignUp').addEventListener('click', doSignUp);
   });
 })();
 
+
+// ── HOW TO ADDRESS YOU (profile + point-of-need) ──────────────
+// Pronouns are never inferred — not from a name, not from anything in the
+// resume. Absent is a correct answer, not a missing one: it means second
+// person and no gendered pronouns, which is what every output already does.
+
+const PRONOUN_PRESETS = ['she/her', 'he/him', 'they/them'];
+window._profile = null;
+
+async function loadProfile() {
+  try {
+    window._profile = await callBackend('profile', {}, 'GET');
+  } catch (e) { window._profile = null; }
+  return window._profile;
+}
+
+function _addressingModalHTML(p, ctx) {
+  const isCustom = p?.pronouns && !PRONOUN_PRESETS.includes(p.pronouns);
+  const chip = v => `<button type="button" class="pn-chip${p?.pronouns === v ? ' on' : ''}"
+    onclick="_pickPronoun('${v}')">${v}</button>`;
+
+  return `
+  <div class="addr-modal-inner">
+    <div class="addr-title">How should I refer to you?</div>
+    <div class="addr-sub">${ctx === 'bio'
+      ? `Your bio is written in third person, so this changes how it reads. Everything else already addresses you as “you”.`
+      : `Used when something is written <em>about</em> you — your short bio, portrait card, and resume. Everything else addresses you as “you”.`}</div>
+
+    <label class="addr-label">Name to use</label>
+    <input class="addr-inp" id="addrName" maxlength="80" placeholder="Leave blank to use no name"
+      value="${(p?.preferred_name || '').replace(/"/g, '&quot;')}" />
+
+    <label class="addr-label" style="margin-top:14px;">Pronouns</label>
+    <div class="pn-chips">
+      ${PRONOUN_PRESETS.map(chip).join('')}
+      <button type="button" class="pn-chip${isCustom ? ' on' : ''}" onclick="_pickPronoun('__custom')">Other</button>
+    </div>
+    <input class="addr-inp" id="addrPronounCustom" maxlength="40" placeholder="e.g. xe/xem"
+      style="margin-top:8px;${isCustom ? '' : 'display:none;'}"
+      value="${isCustom ? p.pronouns.replace(/"/g, '&quot;') : ''}" />
+    <input type="hidden" id="addrPronoun" value="${(p?.pronouns || '').replace(/"/g, '&quot;')}" />
+
+    <div class="addr-note">Leave blank and I'll write “they” — I won't guess.</div>
+
+    <div class="addr-actions">
+      <button class="addr-skip" onclick="_dismissAddressing()">${ctx === 'bio' ? 'Not now' : 'Cancel'}</button>
+      <button class="addr-save" onclick="_saveAddressing('${ctx}')">Save</button>
+    </div>
+  </div>`;
+}
+
+function _pickPronoun(v) {
+  const custom = document.getElementById('addrPronounCustom');
+  const hidden = document.getElementById('addrPronoun');
+  document.querySelectorAll('.pn-chip').forEach(c => c.classList.remove('on'));
+  [...document.querySelectorAll('.pn-chip')].find(c =>
+    c.textContent.trim() === (v === '__custom' ? 'Other' : v))?.classList.add('on');
+
+  if (v === '__custom') {
+    custom.style.display = '';
+    custom.focus();
+    hidden.value = custom.value.trim();
+  } else {
+    custom.style.display = 'none';
+    // Tapping the active chip again clears it — "prefer not to say" must be reachable
+    hidden.value = hidden.value === v ? '' : v;
+    if (!hidden.value) document.querySelectorAll('.pn-chip').forEach(c => c.classList.remove('on'));
+  }
+}
+
+function openProfile() {
+  const host = document.createElement('div');
+  host.className = 'addr-modal';
+  host.id = 'addrModal';
+  host.onclick = e => { if (e.target === host) _dismissAddressing(); };
+  host.innerHTML = _addressingModalHTML(window._profile, 'profile');
+  document.body.appendChild(host);
+  loadProfile().then(p => {
+    if (document.getElementById('addrModal')) host.innerHTML = _addressingModalHTML(p, 'profile');
+  });
+}
+
+function _dismissAddressing() {
+  document.getElementById('addrModal')?.remove();
+  // Remember that we asked, so a skip isn't re-prompted on every bio
+  callBackend('profile/asked', {}).catch(() => {});
+}
+
+async function _saveAddressing(ctx) {
+  const name = document.getElementById('addrName')?.value.trim() || '';
+  const customEl = document.getElementById('addrPronounCustom');
+  const pronouns = (customEl && customEl.style.display !== 'none')
+    ? customEl.value.trim()
+    : (document.getElementById('addrPronoun')?.value.trim() || '');
+
+  const btn = document.querySelector('.addr-save');
+  if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; }
+
+  try {
+    await callBackend('profile', { preferred_name: name, pronouns }, 'PATCH');
+    window._profile = { ...(window._profile || {}), preferred_name: name || null, pronouns: pronouns || null, asked: true };
+    callBackend('profile/asked', {}).catch(() => {});
+    document.getElementById('addrModal')?.remove();
+
+    // Point-of-need: the artifact they were looking at is now wrong — redo it
+    if (ctx === 'bio' && typeof generateShortBio === 'function') {
+      const row = document.getElementById('addrOfferRow');
+      if (row) row.remove();
+      generateShortBio();
+    }
+  } catch (e) {
+    if (btn) { btn.disabled = false; btn.textContent = 'Save'; }
+  }
+}
+
+/**
+ * Offer after a third-person artifact is generated, so the payoff is visible
+ * rather than promised — they've just read a bio that says "they".
+ * Asked at most once; a dismissal is remembered server-side.
+ */
+function offerAddressing(ctx, mountId) {
+  const p = window._profile;
+  if (!p || p.asked || p.preferred_name || p.pronouns) return;
+  const mount = document.getElementById(mountId);
+  if (!mount || document.getElementById('addrOfferRow')) return;
+
+  const row = document.createElement('div');
+  row.id = 'addrOfferRow';
+  row.className = 'addr-offer';
+  row.innerHTML = `
+    <span>Written as “they” — want me to use your name and pronouns?</span>
+    <button onclick="openProfileFor('bio')">Set them</button>
+    <button class="ghost" onclick="_dismissOffer()">No thanks</button>`;
+  mount.appendChild(row);
+}
+
+function openProfileFor(ctx) {
+  const host = document.createElement('div');
+  host.className = 'addr-modal';
+  host.id = 'addrModal';
+  host.onclick = e => { if (e.target === host) _dismissAddressing(); };
+  host.innerHTML = _addressingModalHTML(window._profile, ctx);
+  document.body.appendChild(host);
+}
+
+function _dismissOffer() {
+  document.getElementById('addrOfferRow')?.remove();
+  if (window._profile) window._profile.asked = true;
+  callBackend('profile/asked', {}).catch(() => {});
+}

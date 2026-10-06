@@ -46,18 +46,36 @@
         </div>
       </div>
     </div>
-    <!-- ── GRAPH SEARCH BAR ── -->
-    <div class="graph-search-bar">
-      <span class="graph-search-icon">⌕</span>
-      <input class="graph-search-inp" id="graphSearchInp"
-        placeholder="Search nodes — skill, role, keyword…"
-        oninput="onGraphSearch(this.value)"
-        onkeydown="if(event.key==='Escape')clearGraphSearch();"
-        autocomplete="off" spellcheck="false" />
-      <span class="graph-search-count" id="graphSearchCount"></span>
-      <button class="graph-search-clear" id="graphSearchClear"
-        onclick="clearGraphSearch()" style="display:none;" title="Clear search">✕</button>
+    <!-- ── SPLIT GRAPH BAR: search (left) + goal/gaps (right) ── -->
+    <div class="graph-split-bar">
+      <div class="gsb-half gsb-search">
+        <span class="gsb-icon">⌕</span>
+        <input class="gsb-inp" id="graphSearchInp"
+          placeholder="Search nodes — skill, role, keyword…"
+          oninput="onGraphSearch(this.value)"
+          onkeydown="if(event.key==='Escape')clearGraphSearch();"
+          autocomplete="off" spellcheck="false" />
+        <span class="gsb-count" id="graphSearchCount"></span>
+        <button class="gsb-clear" id="graphSearchClear"
+          onclick="clearGraphSearch()" style="display:none;" title="Clear">✕</button>
+      </div>
+      <div class="gsb-divider"></div>
+      <div class="gsb-half gsb-goal">
+        <span class="gsb-icon">◈</span>
+        <div class="gsb-combo-wrap" id="gsbComboWrap">
+          <input class="gsb-inp" id="goalTitleInp"
+            placeholder="Target role — see your gaps"
+            autocomplete="off" spellcheck="false"
+            onfocus="openGoalDD()"
+            oninput="onGoalType()"
+            onkeydown="onGoalKey(event)" />
+          <div class="gsb-combo-dd" id="goalHistoryDd"></div>
+        </div>
+        <button class="gsb-gap-btn" id="goalGapBtn" onclick="triggerShowGaps()">Show gaps →</button>
+      </div>
     </div>
+    <div class="goal-gap-chips" id="goalGapChips"></div>
+    <div class="goal-gap-status" id="goalGapStatus"></div>
     <div class="graph-area">
       <div id="graphSvgWrap">
         <div id="graphPlaceholder" style="display:flex;align-items:center;justify-content:center;height:100%;flex-direction:column;gap:12px;color:var(--text3);">
@@ -75,6 +93,7 @@
       <div class="ntip" id="ntip"></div>
 
     </div>
+
     <!-- NODE DETAIL PANEL -->
     <div class="node-panel" id="nodePanel">
       <div class="node-panel-hdr">
@@ -277,7 +296,7 @@
         <div class="start-title">Your career is a <em>graph</em>,<br>not a document.</div>
         <div class="start-sub">
           Paste your resume below. We'll build your career graph,<br>
-          ask 4 questions to sharpen the signal, and surface<br>
+          ask 3 questions to sharpen the signal, and surface<br>
           something about you that you couldn't see yourself.<br><br>
           Takes about 3 minutes.
         </div>

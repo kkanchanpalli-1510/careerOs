@@ -16,6 +16,7 @@ export type TaskType =
   | 'article_draft'
   | 'content_ideas'
   | 'node_enrichment_question'
+  | 'interview_question'
   | 'chat_assist'
   | 'goal_graph'
   | 'article_enhance_selection'

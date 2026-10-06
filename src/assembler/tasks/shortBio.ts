@@ -19,7 +19,36 @@ Tone: peer-to-peer, measured. Not self-promotional.`,
 };
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function buildShortBioPrompt(session: any, stageProfile: StageProfile): PromptPackage {
+export interface Addressing {
+  preferred_name: string | null;
+  pronouns:       string | null;
+}
+
+/**
+ * How to refer to the person in third-person copy.
+ * Never inferred — only what they told us. Absent means neutral.
+ */
+function addressingRule(addressing?: Addressing): string {
+  const name = addressing?.preferred_name?.trim();
+  const pro  = addressing?.pronouns?.trim();
+
+  if (!name && !pro) {
+    return `- Third person voice. Do NOT use any person's name — use "They" throughout ("They build..." not "I build..."). Never invent or assume a name or a gender.`;
+  }
+
+  const parts = [`- Third person voice.`];
+  parts.push(name
+    ? `Refer to them as "${name}" on first mention, then by pronoun. Use this name exactly as written — do not shorten, expand, or re-order it.`
+    : `Do NOT use any person's name — never invent or assume one.`);
+  parts.push(pro
+    ? `Their pronouns are ${pro} — use them consistently and correctly throughout. Do not substitute a different set, and do not avoid pronouns entirely.`
+    : `Use "They" as the pronoun — they have not told us a different set, so do not guess one.`);
+  return parts.join(' ');
+}
+
+export function buildShortBioPrompt(
+  session: any, stageProfile: StageProfile, addressing?: Addressing,
+): PromptPackage {
   const graph        = session.graph_data ?? { nodes: [], edges: [] };
   const portrait     = session.insights?.portrait;
   const careerSummary = buildCareerSummary(session);
@@ -48,7 +77,7 @@ BANNED WORDS: passionate, seasoned, proven, dynamic, results-driven, thought lea
 
 Requirements:
 - 100–150 words maximum
-- Third person voice. Do NOT use any person's name — use "They" throughout ("They build..." not "I build..."). Never invent or assume a name.
+${addressingRule(addressing)}
 - Two to three sentences:
   Sentence 1: Who they are at their core + what makes them distinctive. NOT a job title. Lead with the identity reframe.
   Sentence 2: Evidence — one or two specific outcomes or capabilities that ground the identity claim. At least one concrete signal.
@@ -65,7 +94,7 @@ Return ONLY the bio text. No labels. No JSON. No explanation.`;
     user_context,
     task_prompt,
     estimated_tokens: 400,
-    cache_key:        `bio_${session.id}_v${summaryVersion}`,
+    cache_key:        `bio_${session.id}_v${summaryVersion}_${addressing?.preferred_name ?? ''}_${addressing?.pronouns ?? ''}`,
     metadata: {
       nodes_selected:    w3Nodes.length,
       node_ids_selected: w3Nodes.map((n) => n.id),
